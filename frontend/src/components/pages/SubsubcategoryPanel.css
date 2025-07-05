@@ -1,0 +1,173 @@
+.subsub-hover {
+  transition: all 0.3s ease-in-out;
+  border-radius: 10px;
+  border: 1px solid #eee;
+  background-color: #fff;
+}
+
+.subsub-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.btn-add{
+    background-color: #fac205;
+}
+/* Modal Head Styling */
+.modal-head {
+  background: #f7f7f7;
+  border-bottom: 1px solid #dee2e6;
+}
+
+/* Form control spacing */
+.form-select,
+.form-control {
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+/* Button group styling */
+.btn-group .btn {
+  border-radius: 8px !important;
+}
+
+/* Transition for layout toggle */
+.btn-group .btn {
+  transition: all 0.2s;
+}
+
+/* Grid view adjustments */
+@media (max-width: 768px) {
+  .col-md-3 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+      .input-group {
+         flex-direction: row !important; 
+         width: 100%;
+    }
+
+}
+
+@media (max-width: 576px) {
+  .col-md-3 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
+/* Loader styling */
+.loader {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 50px auto;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Modal z-index fix */
+.modal {
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1050;
+}
+
+.modal-content {
+  border-radius: 10px;
+}
+/* Optional card hover effect */
+.subsub-hover:hover {
+  transform: scale(1.01);
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.15);
+}
+
+/* Confirm modal animation */
+.confirm-modal .modal-content {
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.modal-header {
+  background: linear-gradient(135deg,#fac205, #3861e8); 
+  color: white;
+  border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+.btn-color{background-color: #fac205;}
+.btn-color:hover{background-color: #3861e8;color: white;}
+/* Search & Filter Custom Style */
+.search-filter-box {
+  display: flex;
+  justify-content: start;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.search-input {
+  position: relative;
+  max-width: 280px;
+  flex-grow: 1;
+}
+
+.search-input .search-icon {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  color: #888;
+}
+
+.search-input input {
+  padding-left: 2.5rem;
+  height: 42px;
+  border-radius: 30px;
+}
+
+.filter-dropdown select {
+  height: 47px;
+  border-radius: 30px;
+  min-width: 200px;
+}
+
+.btn-add {
+  background-color: #fac205;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 25px;
+  transition: all 0.3s ease;
+}
+
+.btn-add:hover {
+  background-color: #0b5ed7;
+}
+.btn-outline-primary {
+    background: transparent;
+    color: #516dca;
+    border: 2px solid #fac205 !important;
+}
+
+.btn-outline-primary:hover {
+    background: #516dca;
+    color: white;
+    border: 2px solid #fac205 !important;
+}
+.table>:not(caption)>*>* {
+  background-color: transparent !important; /* or white */
+  box-shadow: none !important;
+  color: #000; /* if text is also light */
+}

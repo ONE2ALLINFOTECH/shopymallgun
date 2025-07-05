@@ -1,0 +1,10 @@
+.card-header{  background: linear-gradient(45deg, #fac205, #3861e8);
+}
+.nav-pills{background: linear-gradient(45deg, #10b981, #fac205);}
+.nav-link{color: white !important;}
+.nav-pills .nav-link.active, .nav-pills .show>.nav-link {
+ 
+    background: linear-gradient(45deg, #fac205, #3861e8)
+}
+.btn-success{ background: linear-gradient(45deg, #fac205, #3861e8);}
+.btn-success:hover{background: linear-gradient(45deg, #10b981, #fac205);}

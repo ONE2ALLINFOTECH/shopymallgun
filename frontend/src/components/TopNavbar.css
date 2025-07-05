@@ -1,0 +1,51 @@
+.flex-grow-1 {
+    margin-left: 0px !important;
+}
+
+.top-navbar {
+  background-color: white;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #555;
+  cursor: pointer;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #333;
+  font-weight: 500;
+}
+
+.nav-link.active {
+  color: #007bff;
+}
+
+.flag-icon {
+  width: 25px;
+  height: auto;
+  border-radius: 3px;
+}
+
+.profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.add-new-product{
+    margin-top: 1rem !important;
+    border-radius: none;
+    width: 190px;
+}
+.dropdown-item{
+    font-size: 11px !important;
+}
+.dropdown-item  > a {
+  background-color: #2d3243 !important;
+  color: #ffffff;
+}.btn-color{background-color: #ffc400 !important;color: #2951d5 !important;}
