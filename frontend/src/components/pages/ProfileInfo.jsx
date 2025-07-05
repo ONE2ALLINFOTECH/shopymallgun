@@ -27,37 +27,28 @@ const ProfileInfo = () => {
       window.location.href = "/aadhaar"; // Go to Aadhaar KYC
     }
   };
+const handleSaveProfile = async () => {
+  setIsLoading(true);
+  try {
+    const res = await api.post("/user/profile-info", {
+      emailOrMobile,
+      firstName,
+      lastName,
+      gender,
+      address,
+    });
 
-  const handleSaveProfile = async () => {
-    setIsLoading(true);
-    try {
-    const res = await api.get("/user/profile-info", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          emailOrMobile,
-          firstName,
-          lastName,
-          gender,
-          address,
-        }),
-      });
-
-      const data = await res.json();
-      
-      if (res.ok) {
-        showNotification("success", data.message);
-      } else {
-        showNotification("error", data.message || "Failed to save profile");
-      }
-    } catch (err) {
-      showNotification("error", "Failed to save profile");
-    } finally {
-      setIsLoading(false);
+    if (res.status === 200) {
+      showNotification("success", res.data.message);
+    } else {
+      showNotification("error", res.data.message || "Failed to save profile");
     }
-  };
+  } catch (err) {
+    showNotification("error", "Failed to save profile");
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
