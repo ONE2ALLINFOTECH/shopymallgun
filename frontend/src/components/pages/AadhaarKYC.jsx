@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import axios from "axios";
 import { Shield, Phone, Mail, CreditCard, CheckCircle, Send, Lock, AlertCircle } from "lucide-react";
 import "./common.css"
+import api from "../api/api"
 const AadhaarKYC = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [aadhaarNumber, setAadhaarNumber] = useState("");
@@ -13,7 +14,7 @@ const AadhaarKYC = () => {
   const handleSendAadhaarOTP = async () => {
     setLoading(true);
     try {
-      const res = await axios.post("http://localhost:5000/api/user/aadhaar/send-otp", {
+      const res = await api.post("/user/aadhaar/send-otp", {
         emailOrMobile,
         aadhaarNumber,
       });
@@ -29,7 +30,7 @@ const AadhaarKYC = () => {
   const handleVerifyAadhaarOTP = async () => {
     setVerifying(true);
     try {
-      const res = await axios.post("http://localhost:5000/api/user/aadhaar/verify-otp", {
+      const res = await api.post("/user/aadhaar/verify-otp", {
         emailOrMobile,
         otp,
       });

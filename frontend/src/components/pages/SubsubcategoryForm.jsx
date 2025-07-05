@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Plus, Trash2, Search, Pencil } from "lucide-react";
 import Dashboard from "../pages/Dashboard";
 import "./SubsubcategoryPanel.css";
-
+import api from "../api/api"
 const SubsubcategoryPanel = () => {
   const [subsubcategories, setSubsubcategories] = useState([]);
   const [subcategories, setSubcategories] = useState([]);
@@ -29,8 +29,8 @@ const SubsubcategoryPanel = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const subs = await axios.get("http://localhost:5000/api/subcategory");
-      const subsubs = await axios.get("http://localhost:5000/api/subsubcategory");
+      const subs = await api.get("/subcategory");
+      const subsubs = await api.get("/subsubcategory");
       setSubcategories(subs.data);
       setSubsubcategories(subsubs.data);
     } catch (err) {
@@ -43,12 +43,12 @@ const SubsubcategoryPanel = () => {
     if (!name || !subcategory) return alert("Fill all fields");
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/subsubcategory/${editId}`, {
+        await api.put(`/subsubcategory/${editId}`, {
           name,
           subcategory,
         });
       } else {
-        await axios.post("http://localhost:5000/api/subsubcategory", {
+        await api.post("/subsubcategory", {
           name,
           subcategory,
         });
@@ -74,7 +74,7 @@ const SubsubcategoryPanel = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/subsubcategory/${confirmDeleteId}`);
+      await api.delete(`/subsubcategory/${confirmDeleteId}`);
       setConfirmDeleteId(null);
       fetchData();
     } catch (err) {

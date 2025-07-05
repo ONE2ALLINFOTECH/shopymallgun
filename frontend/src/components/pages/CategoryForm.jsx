@@ -3,7 +3,7 @@ import axios from "axios";
 import { Pencil, Trash2, Save, X, Search, Plus, Image, FileText, CheckCircle, AlertCircle } from "lucide-react";
 import "./CategoryForm.css";
 import Dashboard from "../pages/Dashboard";
-
+import api from "../api/api"
 const CategoryForm = () => {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
@@ -60,7 +60,7 @@ const CategoryForm = () => {
   };
 
   const fetchCategories = async () => {
-    const res = await axios.get("http://localhost:5000/api/category");
+    const res = await api.get("/category");
     setCategories(res.data);
   };
 
@@ -155,10 +155,10 @@ const CategoryForm = () => {
     try {
       setLoading(true);
       if (isEditMode) {
-        await axios.put(`http://localhost:5000/api/category/${currentEditId}`, formData);
+        await api.put(`/category/${currentEditId}`, formData);
         showPopupMessage(`✅ Category "${name}" updated successfully!`, "success");
       } else {
-        await axios.post("http://localhost:5000/api/category", formData);
+        await api.post("/category", formData);
         showPopupMessage(`🎉 Category "${name}" added successfully!`, "success");
       }
       closeModal();
@@ -180,7 +180,7 @@ const CategoryForm = () => {
     const categoryToDelete = categories.find(cat => cat._id === confirmDeleteId);
     
     try {
-      await axios.delete(`http://localhost:5000/api/category/${confirmDeleteId}`);
+      await api.delete(`/category/${confirmDeleteId}`);
       showPopupMessage(`🗑️ Category "${categoryToDelete?.name}" deleted successfully!`, "warning");
       fetchCategories();
       setConfirmDeleteId(null);
@@ -235,7 +235,7 @@ const CategoryForm = () => {
       if (editedCategory.image) formData.append("image", editedCategory.image);
       if (editedCategory.banner) formData.append("banner", editedCategory.banner);
 
-      await axios.put(`http://localhost:5000/api/category/${id}`, formData);
+      await api.put(`/category/${id}`, formData);
       showPopupMessage(`💫 Category "${editedCategory.name}" updated successfully!`, "success");
       cancelEdit();
       fetchCategories();

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import axios from "axios";
-
+import api from "../api/api"
 const ForgetPassword = () => {
   const [email, setEmail] = useState("");
   const [otpSent, setOtpSent] = useState(false);
@@ -11,7 +11,7 @@ const ForgetPassword = () => {
 
   const handleSendOTP = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/user/forgot/send-otp", {
+      const res = await api.post("/user/forgot/send-otp", {
         emailOrMobile: email,
       });
       alert(res.data.message);
@@ -23,7 +23,7 @@ const ForgetPassword = () => {
 
   const handleVerifyOTP = async () => {
     try {
-      const res = await axios.post("http://localhost:5000/api/user/forgot/verify-otp", {
+      const res = await api.post("/user/forgot/verify-otp", {
         emailOrMobile: email,
         otp,
       });
@@ -38,7 +38,7 @@ const ForgetPassword = () => {
     if (password !== confirmPassword) return alert("Passwords don't match");
 
     try {
-      const res = await axios.post("http://localhost:5000/api/user/forgot/reset-password", {
+      const res = await api.post("/user/forgot/reset-password", {
         emailOrMobile: email,
         password,
       });

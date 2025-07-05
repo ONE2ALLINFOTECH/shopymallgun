@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Dashboard from "../pages/Dashboard";
 import "./SubcategoryPanel.css";
-
+import api from "../api/api"
 const SubcategoryForm = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -42,7 +42,7 @@ const SubcategoryForm = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/category");
+      const res = await api.get("/category");
       setCategories(res.data);
     } catch (error) {
       console.error("Error fetching categories:", error);
@@ -52,7 +52,7 @@ const SubcategoryForm = () => {
   const fetchSubcategories = async () => {
     try {
       setLoading(true);
-      const res = await axios.get("http://localhost:5000/api/subcategory");
+      const res = await api.get("/subcategory");
       setSubcategories(res.data);
     } catch (error) {
       console.error("Error fetching subcategories:", error);
@@ -201,10 +201,10 @@ const SubcategoryForm = () => {
 
     try {
       if (editMode) {
-        await axios.put(`http://localhost:5000/api/subcategory/${editId}`, data);
+        await api.put(`/subcategory/${editId}`, data);
         showSuccessNotification("✅ Subcategory updated successfully!");
       } else {
-        await axios.post("http://localhost:5000/api/subcategory", data);
+        await api.post("/subcategory", data);
         showSuccessNotification("✅ Subcategory added successfully!");
       }
       
@@ -268,7 +268,7 @@ const SubcategoryForm = () => {
   const performDelete = async (id) => {
     try {
       setLoading(true);
-      await axios.delete(`http://localhost:5000/api/subcategory/${id}`);
+      await api.delete(`/subcategory/${id}`);
       showSuccessNotification("✅ Subcategory deleted successfully!");
       fetchSubcategories();
     } catch (error) {

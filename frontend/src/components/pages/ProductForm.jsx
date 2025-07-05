@@ -3,6 +3,10 @@ import axios from "axios";
 import "./ProductUpload.css";
 import { Form, Row, Col, Button, Alert, Modal } from "react-bootstrap";
 import Dashboard from "../pages/Dashboard"
+import api from "../api/api"
+
+
+
 function ProductUpload() {
   const [form, setForm] = useState({
     name: "",
@@ -128,8 +132,8 @@ function ProductUpload() {
       setLoading(true);
       try {
         const [categoriesRes, brandsRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/category"),
-          axios.get("http://localhost:5000/api/brand"),
+         api.get("/category"),
+api.get("/brand"),
         ]);
         setCategories(categoriesRes.data);
         setBrands(brandsRes.data);
@@ -149,8 +153,8 @@ function ProductUpload() {
       const categoryId = form.category || searchedProduct?.category?._id;
       if (categoryId) {
         try {
-          const res = await axios.get(
-            `http://localhost:5000/api/subcategory/${categoryId}`
+          const res = await api.get(
+            `/subcategory/${categoryId}`
           );
           setSubcategories(res.data);
         } catch (error) {
@@ -170,8 +174,8 @@ useEffect(() => {
     const subcategoryId = form.subcategory || searchedProduct?.subcategory?._id;
     if (subcategoryId) {
       try {
-        const res = await axios.get(
-          `http://localhost:5000/api/subsubcategory/${subcategoryId}`
+        const res = await api.get(
+          `/subsubcategory/${subcategoryId}`
         );
         setSubsubcategories(res.data);
       } catch (error) {
@@ -257,8 +261,8 @@ useEffect(() => {
     if (!form.sku || editMode) return;
 
     try {
-      const res = await axios.post(
-        "http://localhost:5000/api/products/sku-check",
+      const res = await api.post(
+        "/products/sku-check",
         {
           sku: form.sku,
         }
@@ -389,8 +393,8 @@ useEffect(() => {
 
       let response;
       if (editMode) {
-        response = await axios.put(
-          `http://localhost:5000/api/products/${editId}`,
+        response = await api.put(
+          `/products/${editId}`,
           formData,
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -398,8 +402,8 @@ useEffect(() => {
         );
         showAlert("Product updated successfully!", "success");
       } else {
-        response = await axios.post(
-          "http://localhost:5000/api/products",
+        response = await api.post(
+          "/products",
           formData,
           {
             headers: { "Content-Type": "multipart/form-data" },
@@ -514,8 +518,8 @@ useEffect(() => {
 
     setLoading(true);
     try {
-      const res = await axios.get(
-        `http://localhost:5000/api/products/sku/${searchSKU}`
+      const res = await api.get(
+        `/products/sku/${searchSKU}`
       );
       setSearchedProduct(res.data);
       setSearchError("");
@@ -571,8 +575,8 @@ useEffect(() => {
 
     setLoading(true);
     try {
-      await axios.delete(
-        `http://localhost:5000/api/products/${productToDelete._id}`
+      await api.delete(
+        `/products/${productToDelete._id}`
       );
       showAlert("Product deleted successfully!", "success");
       setSearchedProduct(null);
@@ -648,8 +652,8 @@ useEffect(() => {
 
       formData.append("data", JSON.stringify(data));
 
-      await axios.put(
-        `http://localhost:5000/api/products/${productId}`,
+      await api.put(
+        `/products/${productId}`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -659,8 +663,8 @@ useEffect(() => {
       showAlert("Product updated successfully!", "success");
 
       // Refresh the searched product data
-      const updatedRes = await axios.get(
-        `http://localhost:5000/api/products/sku/${searchedProduct.sku}`
+      const updatedRes = await api.get(
+        `/products/sku/${searchedProduct.sku}`
       );
       setSearchedProduct(updatedRes.data);
     } catch (error) {
@@ -691,8 +695,8 @@ useEffect(() => {
         formData.append("video", files);
       }
 
-      await axios.put(
-        `http://localhost:5000/api/products/${productId}`,
+      await api.put(
+        `/products/${productId}`,
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -705,8 +709,8 @@ useEffect(() => {
       );
 
       // Refresh the searched product data
-      const updatedRes = await axios.get(
-        `http://localhost:5000/api/products/sku/${searchedProduct.sku}`
+      const updatedRes = await api.get(
+        `/products/sku/${searchedProduct.sku}`
       );
       setSearchedProduct(updatedRes.data);
     } catch (error) {
@@ -723,15 +727,15 @@ useEffect(() => {
 
     setUploading(true);
     try {
-      await axios.delete(
-        `http://localhost:5000/api/products/${productId}/gallery/${imageIndex}`
+      await api.delete(
+        `/products/${productId}/gallery/${imageIndex}`
       );
 
       showAlert("Gallery image removed successfully!", "success");
 
       // Refresh the searched product data
-      const updatedRes = await axios.get(
-        `http://localhost:5000/api/products/sku/${searchedProduct.sku}`
+      const updatedRes = await api.get(
+        `/products/sku/${searchedProduct.sku}`
       );
       setSearchedProduct(updatedRes.data);
     } catch (error) {

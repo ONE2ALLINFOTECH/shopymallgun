@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { Link } from "react-router-dom";
 import Dashboard from "../pages/Dashboard";
-
+import api from "../api/api"
 const ProductList = () => {
   const [products, setProducts] = useState([]);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -11,7 +11,7 @@ const ProductList = () => {
   // Fetch all products
   const fetchProducts = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/products");
+      const res = await api.get("/products");
       setProducts(res.data);
     } catch (err) {
       console.error("Error fetching products:", err);
@@ -25,7 +25,7 @@ const ProductList = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/products/${productToDelete}`);
+      await api.delete(`/products/${productToDelete}`);
       setProducts(products.filter(p => p._id !== productToDelete));
       setShowDeleteModal(false);
       setProductToDelete(null);

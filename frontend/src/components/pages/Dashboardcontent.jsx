@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-
+import api from "../api/api"
 import {
   FaArrowUp,
   FaArrowDown,
@@ -64,7 +64,7 @@ const DashboardDataPage = () => {
   const [productCount, setProductCount] = useState(0);
 
   useEffect(() => {
-    axios.get("http://localhost:5000/api/products/total-count")
+    api.get("/products/total-count")
       .then(res => {
         setProductCount(res.data.totalProducts);
       })

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Shield, CheckCircle, AlertCircle, CreditCard, Phone, Mail } from "lucide-react";
 import "./common.css"
+import api from "../api/api"
 const PanKYC = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [panNumber, setPanNumber] = useState("");
@@ -34,7 +35,7 @@ const PanKYC = () => {
     setIsLoading(true);
     
     try {
-      const res = await fetch("http://localhost:5000/api/user/pan/verify", {
+     const res = await api.post("/user/pan/verify", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

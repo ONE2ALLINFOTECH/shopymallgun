@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { Plus, Trash2, Search, Pencil } from "lucide-react";
 import Dashboard from "../pages/Dashboard";
 import "./SubsubcategoryPanel.css"; // Using the same CSS file
-
+import api from "../api/api"
 const BrandForm = () => {
   const [brands, setBrands] = useState([]);
   const [subsubcategories, setSubsubcategories] = useState([]);
@@ -29,8 +29,8 @@ const BrandForm = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const subsubRes = await axios.get("http://localhost:5000/api/subsubcategory");
-      const brandRes = await axios.get("http://localhost:5000/api/brand");
+      const subsubRes = await api.get("/subsubcategory");
+      const brandRes = await api.get("/brand");
       setSubsubcategories(subsubRes.data);
       setBrands(brandRes.data);
     } catch (err) {
@@ -43,12 +43,12 @@ const BrandForm = () => {
     if (!name || !subsubcategory) return alert("Fill all fields");
     try {
       if (isEditing) {
-        await axios.put(`http://localhost:5000/api/brand/${editId}`, {
+        await api.put(`/brand/${editId}`, {
           name,
           subsubcategory,
         });
       } else {
-        await axios.post("http://localhost:5000/api/brand", {
+        await api.post("/brand", {
           name,
           subsubcategory,
         });
@@ -74,7 +74,7 @@ const BrandForm = () => {
 
   const confirmDelete = async () => {
     try {
-      await axios.delete(`http://localhost:5000/api/brand/${confirmDeleteId}`);
+      await api.delete(`/brand/${confirmDeleteId}`);
       setConfirmDeleteId(null);
       fetchData();
     } catch (err) {

@@ -5,7 +5,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Dashboard from "../pages/Dashboard";
 import "./EditForm.css";
 import { Form, Row, Col, Button, Alert, Modal } from "react-bootstrap";
-
+import api from "../api/api"
 const EditProduct = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -28,8 +28,8 @@ const EditProduct = () => {
 
   // Load product details
   useEffect(() => {
-    axios
-      .get(`http://localhost:5000/api/products/${id}`)
+    api
+      .get(`/products/${id}`)
       .then(async (res) => {
         const product = res.data;
         const categoryId = product.category?._id || "";
@@ -70,8 +70,8 @@ const EditProduct = () => {
       setLoading(true);
       try {
         const [catRes, brandRes] = await Promise.all([
-          axios.get("http://localhost:5000/api/category"),
-          axios.get("http://localhost:5000/api/brand"),
+          api.get("/category"),
+          api.get("/brand"),
         ]);
         setCategories(catRes.data);
         setBrands(brandRes.data);
@@ -87,8 +87,8 @@ const EditProduct = () => {
   // Fetch subcategories
   const fetchSubcategories = async (categoryId) => {
     try {
-      const res = await axios.get(
-        `http://localhost:5000/api/subcategory/${categoryId}`
+      const res = await api.get(
+        `/subcategory/${categoryId}`
       );
       setSubcategories(res.data);
     } catch (error) {
@@ -100,8 +100,8 @@ const EditProduct = () => {
   // Fetch subsubcategories
   const fetchSubsubcategories = async (subcategoryId) => {
     try {
-      const res = await axios.get(
-        `http://localhost:5000/api/subsubcategory/${subcategoryId}`
+      const res = await api.get(
+        `/subsubcategory/${subcategoryId}`
       );
       setSubsubcategories(res.data);
     } catch (error) {
@@ -162,7 +162,7 @@ const EditProduct = () => {
     for (let file of gallery) data.append("gallery", file);
 
     try {
-      await axios.put(`http://localhost:5000/api/products/${id}`, data, {
+      await api.put(`/products/${id}`, data, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       alert("Product updated successfully!");

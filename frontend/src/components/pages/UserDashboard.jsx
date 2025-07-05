@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { User, Mail, Phone, MapPin, Shield, CreditCard, LogOut, CheckCircle, XCircle, Loader2, AlertCircle } from "lucide-react";
 import "./common.css"
+import api from "../api/api"
+
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [profile, setProfile] = useState(null);
@@ -19,7 +21,7 @@ const UserDashboard = () => {
     setError("");
     try {
       // Replace with your actual API call
-      const res = await fetch(`http://localhost:5000/api/user/profile?emailOrMobile=${input}`);
+      const res = await api.get(`/user/profile?emailOrMobile=${input}`);
       if (!res.ok) throw new Error("Failed to fetch profile");
       const data = await res.json();
       setProfile(data);

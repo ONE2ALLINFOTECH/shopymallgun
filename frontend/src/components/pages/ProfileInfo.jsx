@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { User, Mail, Phone, MapPin, Calendar, Save, ArrowRight, CheckCircle, XCircle, X } from "lucide-react";
 import "./common.css"
+import api from "../api/api"
+
+
 const ProfileInfo = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -28,7 +31,7 @@ const ProfileInfo = () => {
   const handleSaveProfile = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/user/profile-info", {
+    const res = await api.get("/user/profile-info", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

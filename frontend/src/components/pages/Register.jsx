@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { Mail, Phone, Eye, EyeOff, Lock, Shield, CheckCircle, Send, X, AlertCircle, RefreshCw, Clock, Mic } from "lucide-react";
 import "./common.css"
-
+import api from "../api/api"
 const Register = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
   const [otp, setOtp] = useState("");
@@ -14,7 +14,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  
+ 
   // CAPTCHA states
   const [captchaText, setCaptchaText] = useState("");
   const [captchaInput, setCaptchaInput] = useState("");
@@ -146,7 +146,7 @@ const Register = () => {
     setErrors({});
     
     try {
-      const res = await axios.post("http://localhost:5000/api/user/send-otp", {
+      const res = await api.post("/user/send-otp", {
         emailOrMobile,
       });
       showPopup('success', res.data.message);
@@ -165,7 +165,7 @@ const Register = () => {
     setErrors({});
     
     try {
-      const res = await axios.post("http://localhost:5000/api/user/send-otp", {
+      const res = await api.post("/user/send-otp", {
         emailOrMobile,
       });
       showPopup('success', 'OTP resent successfully!');
@@ -189,7 +189,7 @@ const Register = () => {
     setErrors({});
     
     try {
-      const res = await axios.post("http://localhost:5000/api/user/verify-otp", {
+      const res = await api.post("/user/verify-otp", {
         emailOrMobile,
         otp,
       });
@@ -218,7 +218,7 @@ const Register = () => {
     setErrors({});
     
     try {
-      const res = await axios.post("http://localhost:5000/api/user/register", {
+      const res = await api.post("/user/register", {
         emailOrMobile,
         password,
       });
