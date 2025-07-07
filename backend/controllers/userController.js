@@ -109,20 +109,14 @@ const saveProfileInfo = async (req, res) => {
   }
 };
 const aadhaarKYC = async (req, res) => {
-  // ✅ Ensure emailOrMobile is treated as string (sometimes numbers cause issues)
-  const emailOrMobile = String(req.body.emailOrMobile).trim();
-  const aadhaarNumber = req.body.aadhaarNumber;
+  const { emailOrMobile, aadhaarNumber } = req.body;
 
   try {
-    // ✅ Proper query with trimmed value
     const user = await User.findOne({ emailOrMobile });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     const response = await axios.post(
-      "https://sandbox.cashfree.com/kyc/v2/aadhaar/verify", // ✅ using v2 here
+      "https://sandbox.cashfree.com/kyc/v2/aadhaar/verify",
       {
         aadhaar_number: aadhaarNumber,
         consent: "Y",
@@ -140,18 +134,17 @@ const aadhaarKYC = async (req, res) => {
 
     const txnId = response.data.txn_id;
 
-    // ✅ Save Aadhaar info in user document
+    // Save Aadhaar partially
     user.aadhaarNumber = aadhaarNumber;
     user.aadhaarTxnId = txnId;
     await user.save();
 
     res.json({ success: true, txnId });
   } catch (err) {
-    console.log("❌ Cashfree Error:", err.response?.data || err.message);
+    console.log(err.response?.data || err.message);
     res.status(500).json({ error: "Aadhaar OTP request failed" });
   }
 };
-
 
 const verifyAadhaarOTP = async (req, res) => {
   const { emailOrMobile, otp } = req.body;
