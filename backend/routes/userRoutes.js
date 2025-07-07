@@ -1,40 +1,30 @@
 const express = require("express");
 const router = express.Router();
-
-// Import all functions from userController
-const { 
-  sendOTP, 
-  verifyOTP, 
-  registerUser,
-  saveProfileInfo,
-  sendAadhaarOTP,      // Use the new function name
-  verifyAadhaarOTP,
-  verifyPAN,
+const { sendOTP, verifyOTP, registerUser } = require("../controllers/userController");
+const { saveProfileInfo } = require("../controllers/userController");
+const { aadhaarKYC, verifyAadhaarOTP } = require("../controllers/userController");
+const { verifyPAN } = require("../controllers/userController");
+const {
   sendEmailOTP,
   verifyEmailOTP,
   resetPassword,
-  getUserProfile
+  
 } = require("../controllers/userController");
 
-// Basic authentication routes
+const { getUserProfile } = require("../controllers/userController");
+// Add this route mapping
+router.post('/aadhaar/send-otp', aadhaarKYC);           // ✅ Map to your function
+router.post('/aadhaar/verify-otp', verifyAadhaarOTP);   // ✅ Map to verify function
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 router.post("/register", registerUser);
-
-// Profile routes
 router.post("/profile-info", saveProfileInfo);
-router.get("/profile", getUserProfile);
-
-// Aadhaar KYC routes
-router.post("/aadhaar/send-otp", sendAadhaarOTP);    // ✅ Use the new function
+router.post("/aadhaar/send-otp", aadhaarKYC);
 router.post("/aadhaar/verify-otp", verifyAadhaarOTP);
-
-// PAN verification route
 router.post("/pan/verify", verifyPAN);
-
-// Password reset routes
 router.post("/forgot/send-otp", sendEmailOTP);
 router.post("/forgot/verify-otp", verifyEmailOTP);
 router.post("/forgot/reset-password", resetPassword);
+router.get("/profile", getUserProfile);
 
 module.exports = router;
