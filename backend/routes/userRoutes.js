@@ -11,7 +11,9 @@ const {
 } = require("../controllers/userController");
 
 const { getUserProfile } = require("../controllers/userController");
-
+// Add this route mapping
+router.post('/aadhaar/send-otp', aadhaarKYC);           // ✅ Map to your function
+router.post('/aadhaar/verify-otp', verifyAadhaarOTP);   // ✅ Map to verify function
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 router.post("/register", registerUser);
