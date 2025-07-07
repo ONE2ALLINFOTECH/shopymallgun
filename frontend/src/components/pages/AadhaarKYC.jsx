@@ -11,62 +11,70 @@ const AadhaarKYC = () => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
 
-  const handleSendAadhaarOTP = async () => {
-    setLoading(true);
-    try {
-      const res = await api.post("/user/aadhaar/send-otp", {
-        emailOrMobile,
-        aadhaarNumber,
-      });
-      alert("OTP sent to Aadhaar mobile.");
-      setOtpSent(true);
-    } catch (err) {
-      alert("Failed to send Aadhaar OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Remove dashes before sending to backend
+const getCleanAadhaar = (aadhaar) => aadhaar.replace(/\D/g, '');
 
-  const handleVerifyAadhaarOTP = async () => {
-    setVerifying(true);
-    try {
-      const res = await api.post("/user/aadhaar/verify-otp", {
-        emailOrMobile,
-        otp,
-      });
-      alert(res.data.message);
-      window.location.href = "/pan";
-    } catch (err) {
-      alert("Aadhaar verification failed");
-    } finally {
-      setVerifying(false);
-    }
-  };
+// Aadhaar OTP Send
+const handleSendAadhaarOTP = async () => {
+  setLoading(true);
+  try {
+    const res = await api.post("/user/aadhaar/send-otp", {
+      emailOrMobile,
+      aadhaarNumber: getCleanAadhaar(aadhaarNumber),  // ✅ clean value
+    });
+    alert("OTP sent to Aadhaar mobile.");
+    setOtpSent(true);
+  } catch (err) {
+    alert("Failed to send Aadhaar OTP");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const formatAadhaarNumber = (value) => {
-    // Remove all non-digits
-    const digits = value.replace(/\D/g, '');
-    // Format as XXXX-XXXX-XXXX
-    return digits.replace(/(\d{4})(?=\d)/g, '$1-');
-  };
+// Aadhaar OTP Verify
+const handleVerifyAadhaarOTP = async () => {
+  setVerifying(true);
+  try {
+    const res = await api.post("/user/aadhaar/verify-otp", {
+      emailOrMobile,
+      otp,
+    });
+    alert(res.data.message);
+    window.location.href = "/pan";
+  } catch (err) {
+    alert("Aadhaar verification failed");
+  } finally {
+    setVerifying(false);
+  }
+};
 
-  const isValidAadhaar = (number) => {
-    const cleanNumber = number.replace(/\D/g, '');
-    return cleanNumber.length === 12;
-  };
+// Aadhaar Format with Dash (for UI only)
+const formatAadhaarNumber = (value) => {
+  const digits = value.replace(/\D/g, '');
+  return digits.replace(/(\d{4})(?=\d)/g, '$1-'); // XXXX-XXXX-XXXX
+};
 
-  const isValidEmailOrMobile = (value) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const mobileRegex = /^[6-9]\d{9}$/;
-    return emailRegex.test(value) || mobileRegex.test(value);
-  };
+// Aadhaar Validation
+const isValidAadhaar = (number) => {
+  const cleanNumber = number.replace(/\D/g, '');
+  return cleanNumber.length === 12;
+};
 
-  const handleAadhaarChange = (e) => {
-    const formatted = formatAadhaarNumber(e.target.value);
-    if (formatted.length <= 14) { // Max length with dashes
-      setAadhaarNumber(formatted);
-    }
-  };
+// Email or Mobile Check
+const isValidEmailOrMobile = (value) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const mobileRegex = /^[6-9]\d{9}$/;
+  return emailRegex.test(value) || mobileRegex.test(value);
+};
+
+// Aadhaar Input Change
+const handleAadhaarChange = (e) => {
+  const formatted = formatAadhaarNumber(e.target.value);
+  if (formatted.length <= 14) {
+    setAadhaarNumber(formatted);  // UI shows dash
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50 py-12 px-4">

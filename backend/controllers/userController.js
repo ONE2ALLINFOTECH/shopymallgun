@@ -116,7 +116,7 @@ const aadhaarKYC = async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const response = await axios.post(
-      "https://sandbox.cashfree.com/kyc/v1/aadhaar/verify",
+      "https://sandbox.cashfree.com/kyc/v2/aadhaar/verify",
       {
         aadhaar_number: aadhaarNumber,
         consent: "Y",
@@ -155,7 +155,7 @@ const verifyAadhaarOTP = async (req, res) => {
       return res.status(404).json({ error: "Invalid request" });
 
     const verifyResponse = await axios.post(
-      "https://sandbox.cashfree.com/kyc/v1/aadhaar/verify/otp",
+      "https://sandbox.cashfree.com/kyc/v2/aadhaar/verify/otp",
       {
         otp,
         txn_id: user.aadhaarTxnId,
@@ -187,7 +187,7 @@ const verifyPAN = async (req, res) => {
     if (!user) return res.status(404).json({ error: "User not found" });
 
     const response = await axios.post(
-      "https://sandbox.cashfree.com/kyc/v1/pan/verify",
+      "https://sandbox.cashfree.com/kyc/v2/pan/verify",
       {
         pan: panNumber,
         consent: "Y",
