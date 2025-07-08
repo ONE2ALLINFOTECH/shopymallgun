@@ -1,260 +1,163 @@
 import React, { useState } from "react";
-import { User, Mail, Phone, MapPin, Calendar, Save, ArrowRight, CheckCircle, XCircle, X } from "lucide-react";
-import "./common.css"
-import api from "../api/api"
-
+import { User, CheckCircle, AlertCircle, X } from "lucide-react";
+import "./common.css";
+import api from "../api/api";
 
 const ProfileInfo = () => {
-  const [emailOrMobile, setEmailOrMobile] = useState("");
+  const [emailOrMobile, setEmailOrMobile] = useState(localStorage.getItem("emailOrMobile") || "");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [gender, setGender] = useState("Male");
+  const [gender, setGender] = useState("");
   const [address, setAddress] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [showPopup, setShowPopup] = useState(false);
-  const [popupType, setPopupType] = useState("success"); // "success" or "error"
-  const [popupMessage, setPopupMessage] = useState("");
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState({ show: false, type: "", message: "" });
 
-  const showNotification = (type, message) => {
-    setPopupType(type);
-    setPopupMessage(message);
-    setShowPopup(true);
+  const showPopup = (type, message) => {
+    setPopup({ show: true, type, message });
+    setTimeout(() => setPopup({ show: false, type: "", message: "" }), 3000);
   };
 
-  const closePopup = () => {
-    setShowPopup(false);
-    if (popupType === "success") {
-      window.location.href = "/aadhaar"; // Go to Aadhaar KYC
+  const validateForm = () => {
+    const newErrors = {};
+    if (!emailOrMobile.trim()) newErrors.emailOrMobile = "Email or mobile is required";
+    if (!firstName.trim()) newErrors.firstName = "First name is required";
+    if (!lastName.trim()) newErrors.lastName = "Last name is required";
+    if (!gender) newErrors.gender = "Gender is required";
+    if (!address.trim()) newErrors.address = "Address is required";
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    setLoading(true);
+    try {
+      const normalizedEmailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
+      const res = await api.post("/user/profile-info", {
+        emailOrMobile: normalizedEmailOrMobile,
+        firstName,
+        lastName,
+        gender,
+        address,
+      });
+      showPopup("success", res.data.message);
+      setTimeout(() => {
+        window.location.href = "/dashboard";
+      }, 1500);
+    } catch (err) {
+      console.error("Save profile error:", err.response || err);
+      showPopup("error", err.response?.data?.error || "Failed to save profile");
+    } finally {
+      setLoading(false);
     }
   };
-const handleSaveProfile = async () => {
-  setIsLoading(true);
-  try {
-    const res = await api.post("/user/profile-info", {
-      emailOrMobile,
-      firstName,
-      lastName,
-      gender,
-      address,
-    });
-
-    if (res.status === 200) {
-      showNotification("success", res.data.message);
-    } else {
-      showNotification("error", res.data.message || "Failed to save profile");
-    }
-  } catch (err) {
-    showNotification("error", "Failed to save profile");
-  } finally {
-    setIsLoading(false);
-  }
-};
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 py-12 px-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header Section */}
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
+      {popup.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className={`bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full transform transition-all duration-300 ${popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
+            <div className="flex items-center justify-between mb-4">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${popup.type === "success" ? "bg-green-100" : "bg-red-100"}`}>
+                {popup.type === "success" ? <CheckCircle className="w-6 h-6 text-green-600" /> : <AlertCircle className="w-6 h-6 text-red-600" />}
+                <h3 className={`font-semibold text-lg ${popup.type === "success" ? "text-green-800" : "text-red-800"}`}>{popup.type === "success" ? "Success!" : "Error!"}</h3>
+              </div>
+              <button onClick={() => setPopup({ show: false, type: "", message: "" })} className="text-gray-400 hover:text-gray-600"><X className="w-5 h-5" /></button>
+            </div>
+            <p className="text-gray-700 mb-4">{popup.message}</p>
+          </div>
+        </div>
+      )}
+      <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-full mb-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl mb-4">
             <User className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Complete Your Profile</h1>
-          <p className="text-gray-600">Please fill in your details to continue with KYC verification</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">Complete Your Profile</h1>
+          <p className="text-gray-600">Enter your personal details</p>
         </div>
-
-        {/* Form Card */}
         <div className="bg-white rounded-2xl shadow-xl p-8 border border-gray-100">
           <div className="space-y-6">
-            {/* Email/Mobile Field */}
-         <div className="relative">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Registered Email or Mobile Number
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                  placeholder="Enter your email or mobile number"
-                  value={emailOrMobile}
-                  onChange={(e) => setEmailOrMobile(e.target.value)}
-                />
-              </div>
-            </div> 
-
-            {/* Name Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                  placeholder="Enter first name"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
-                  placeholder="Enter last name"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Gender Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Gender
-              </label>
-              <div className="relative">
-                <select
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white appearance-none"
-                  value={gender}
-                  onChange={(e) => setGender(e.target.value)}
-                >
-                 
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                  </svg>
-                </div>
-              </div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
+              <input
+                type="text"
+                value={emailOrMobile}
+                onChange={(e) => setEmailOrMobile(e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-all ${errors.emailOrMobile ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+                placeholder="Enter email or mobile number"
+                disabled
+              />
+              {errors.emailOrMobile && <div className="flex items-center mt-2 text-red-600 text-sm"><AlertCircle className="w-4 h-4 mr-1" />{errors.emailOrMobile}</div>}
             </div>
-
-            {/* Address Field */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Address
-              </label>
-              <div className="relative">
-                <div className="absolute top-3 left-3 pointer-events-none">
-                  <MapPin className="h-5 w-5 text-gray-400" />
-                </div>
-                <textarea
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white resize-none"
-                  placeholder="Enter your complete address"
-                  rows={3}
-                  value={address}
-                  onChange={(e) => setAddress(e.target.value)}
-                />
-              </div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">First Name</label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-all ${errors.firstName ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+                placeholder="Enter first name"
+              />
+              {errors.firstName && <div className="flex items-center mt-2 text-red-600 text-sm"><AlertCircle className="w-4 h-4 mr-1" />{errors.firstName}</div>}
             </div>
-
-            {/* Progress Indicator */}
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-                <span>Profile Completion</span>
-                <span>Step 1 of 2</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full w-1/2 transition-all duration-300"></div>
-              </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Last Name</label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-all ${errors.lastName ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+                placeholder="Enter last name"
+              />
+              {errors.lastName && <div className="flex items-center mt-2 text-red-600 text-sm"><AlertCircle className="w-4 h-4 mr-1" />{errors.lastName}</div>}
             </div>
-
-            {/* Submit Button */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Gender</label>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-all ${errors.gender ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+              >
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+              {errors.gender && <div className="flex items-center mt-2 text-red-600 text-sm"><AlertCircle className="w-4 h-4 mr-1" />{errors.gender}</div>}
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Address</label>
+              <textarea
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:outline-none transition-all ${errors.address ? "border-red-300 focus:border-red-500" : "border-gray-200 focus:border-blue-500"}`}
+                placeholder="Enter address"
+                rows="4"
+              />
+              {errors.address && <div className="flex items-center mt-2 text-red-600 text-sm"><AlertCircle className="w-4 h-4 mr-1" />{errors.address}</div>}
+            </div>
             <button
-              className={`w-full py-4 px-6 rounded-lg text-white font-medium transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-300 ${
-                isLoading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl'
-              }`}
-              onClick={handleSaveProfile}
-              disabled={isLoading}
+              onClick={handleSubmit}
+              disabled={loading}
+              className={`w-full py-4 rounded-xl font-semibold transition-all flex items-center justify-center space-x-2 ${loading ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl"}`}
             >
-              {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                  Saving...
-                </div>
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                  <span>Saving...</span>
+                </>
               ) : (
-                <div className="flex items-center justify-center">
-                  <Save className="w-5 h-5 mr-2" />
-                  Save & Continue
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </div>
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  <span>Save Profile</span>
+                </>
               )}
             </button>
           </div>
         </div>
-
-        {/* Next Step Preview */}
-        <div className="mt-8 text-center">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-white shadow-md border border-gray-200">
-            <span className="text-sm text-gray-600">Next: Aadhaar KYC Verification</span>
-            <ArrowRight className="w-4 h-4 ml-2 text-gray-400" />
-          </div>
-        </div>
       </div>
-
-      {/* Beautiful Popup Modal */}
-      {showPopup && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-100">
-            {/* Close Button */}
-            <div className="absolute top-4 right-4">
-              <button
-                onClick={closePopup}
-                className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-8 text-center">
-              {/* Icon */}
-              <div className="mx-auto mb-4">
-                {popupType === "success" ? (
-                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle className="w-8 h-8 text-green-600" />
-                  </div>
-                ) : (
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <XCircle className="w-8 h-8 text-red-600" />
-                  </div>
-                )}
-              </div>
-
-              {/* Title */}
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {popupType === "success" ? "Success!" : "Error!"}
-              </h3>
-
-              {/* Message */}
-              <p className="text-gray-600 mb-6">
-                {popupMessage}
-              </p>
-
-              {/* Action Button */}
-              <button
-                onClick={closePopup}
-                className={`w-full py-3 px-6 rounded-lg text-white font-medium transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-4 ${
-                  popupType === "success"
-                    ? 'bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 focus:ring-green-300'
-                    : 'bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 focus:ring-red-300'
-                }`}
-              >
-                {popupType === "success" ? "Continue to Aadhaar KYC" : "Try Again"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
