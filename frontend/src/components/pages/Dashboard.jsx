@@ -128,10 +128,9 @@ export default function MultiVendorDashboard() {
       <div className={`sidebar ${isSidebarOpen ? "open" : ""}`}>
         <div className="sidebar-header">
           <div className="brand-logo">
-            <div className="logo-icon">
-              <img src="/wallet final logo.png" alt="" style={{ width: 50 }} />
-              ShopyMall
-            </div>
+            <div className="logo-icon" style={{ display:"flex", justifyContent:"left" }} >
+              <img src="/wallet final logo.png" alt="" style={{ width: 50 }} /> <span> ShopyMall </span>
+             </div>
           </div>
           {isMobile && (
             <button
@@ -145,7 +144,7 @@ export default function MultiVendorDashboard() {
 
         <div className="sidebar-search">
           <FaSearch className="search-icon" />
-          <input type="text" placeholder="Search in menu" />
+          <input className="search-input" type="text" placeholder="Search in menu" />
         </div>
 
         <ul className="sidebar-nav">
