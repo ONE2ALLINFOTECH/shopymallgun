@@ -25,3 +25,4 @@ router.post("/forgot/reset-password", resetPassword);
 router.get("/profile", getUserProfile);
 
 module.exports = router;
+

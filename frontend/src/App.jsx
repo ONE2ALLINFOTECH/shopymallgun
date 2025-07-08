@@ -36,7 +36,7 @@ const App = () => {
   return (
     <Router>
       <div className="d-flex">
-        <div className="flex-grow-1" style={{ marginLeft: "250px" }}>
+        <div >
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<Register />} />
