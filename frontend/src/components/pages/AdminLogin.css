@@ -46,6 +46,7 @@ html,
   max-width: 160px;
   height: auto;
   user-select: none;
+  margin-left: 5em;
 }
 
 .login-title {
