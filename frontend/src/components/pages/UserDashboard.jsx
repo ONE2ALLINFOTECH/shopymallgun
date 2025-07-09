@@ -386,7 +386,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <NavBar />
+      {/* <NavBar /> */}
       
       {/* Popup */}
       {popup.show && (
