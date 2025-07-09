@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Mail, Phone, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import api from "../api/api";
 
 const UserDashboard = () => {
@@ -88,7 +88,7 @@ const UserDashboard = () => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("userToken"); // Example: remove token
+    localStorage.removeItem("userToken");
     navigate("/login");
     showPopup("success", "Logged out successfully");
   };
@@ -106,11 +106,11 @@ const UserDashboard = () => {
           <h2 className="ml-2 text-lg font-semibold">Gunjan Bansal</h2>
         </div>
         <nav className="space-y-2">
-          <button className="w-full text-left p-2 hover:bg-gray-200 rounded">My Orders</button>
-          <button className="w-full text-left p-2 hover:bg-gray-200 rounded">Account Settings</button>
-          <button className="w-full text-left p-2 hover:bg-gray-200 rounded">Payments</button>
-          <button className="w-full text-left p-2 hover:bg-gray-200 rounded">My Stuff</button>
-          <button className="w-full text-left p-2 hover:bg-gray-200 rounded">My Wishlist</button>
+          <Link to="/my-orders" className="block p-2 hover:bg-gray-200 rounded">My Orders</Link>
+          <Link to="/account-settings" className="block p-2 hover:bg-gray-200 rounded">Account Settings</Link>
+          <Link to="/payments" className="block p-2 hover:bg-gray-200 rounded">Payments</Link>
+          <Link to="/my-stuff" className="block p-2 hover:bg-gray-200 rounded">My Stuff</Link>
+          <Link to="/my-wishlist" className="block p-2 hover:bg-gray-200 rounded">My Wishlist</Link>
           <button
             onClick={handleLogout}
             className="w-full text-left p-2 hover:bg-red-200 rounded text-red-600 flex items-center mt-4"
@@ -205,16 +205,27 @@ const UserDashboard = () => {
         ) : (
           <div className="bg-white p-6 rounded-lg shadow">
             <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
-            <div className="space-y-2">
-              <p><strong>Name:</strong> {userData?.firstName || "N/A"} {userData?.lastName || "N/A"}</p>
-              <p><strong>Email/Mobile:</strong> {userData?.emailOrMobile || "N/A"}</p>
-              <p><strong>Gender:</strong> {userData?.gender || "N/A"}</p>
-              <button className="mt-4 bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Edit</button>
+            <div>
+              <div className="flex items-center mb-4">
+                <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold mr-2">
+                  G
+                </div>
+                <div>
+                  <p className="font-semibold">{userData?.firstName || "N/A"} {userData?.lastName || "N/A"}</p>
+                  <p className="text-sm text-gray-500">+91-{userData?.emailOrMobile || "N/A"}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <p><strong>Your Gender:</strong> {userData?.gender || "N/A"}</p>
+                <button className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Edit</button>
+              </div>
             </div>
             <div className="mt-6">
               <h3 className="text-lg font-semibold">FAQs</h3>
               <p>What happens when I update my email address or mobile number?</p>
-              <p>It updates as soon as you confirm the verification code.</p>
+              <p>Your login & all mobile number/like-wise. You'll get all your account related communication on your updated email address or mobile number.</p>
+              <p>When will my Flipkart account be updated with the new email address or mobile number?</p>
+              <p>It happens as soon as you confirm the verification code sent to your email or mobile and save the changes.</p>
             </div>
             <div className="mt-6">
               <button className="text-red-600">Deactivate Account</button>
