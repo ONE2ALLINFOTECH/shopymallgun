@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Mail, Phone, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, Menu, Edit2, Trash2 } from "lucide-react";
+import { Mail, Phone, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import api from "../api/api";
 
@@ -12,7 +12,6 @@ const UserDashboard = () => {
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [timer, setTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -94,64 +93,37 @@ const UserDashboard = () => {
     showPopup("success", "Logged out successfully");
   };
 
-  const handleEdit = () => {
-    // Logic to open edit form or navigate to edit page
-    showPopup("success", "Edit functionality triggered (implement your edit logic here)");
-  };
-
-  const handleDeactivate = () => {
-    // Logic to deactivate account (e.g., API call)
-    showPopup("warning", "Deactivate account? (Implement API call and confirmation)");
-  };
-
-  const handleDelete = () => {
-    // Logic to delete account (e.g., API call)
-    showPopup("warning", "Delete account? (Implement API call and confirmation)");
-  };
-
   const isEmail = emailOrMobile.includes("@");
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      {/* Mobile Menu Button */}
+    <div className="flex min-h-screen bg-gray-100">
+      {/* Sidebar - Shown only when verified */}
       {isVerified && (
-        <button
-          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className="md:hidden p-2 text-gray-600 fixed top-4 left-4 z-50 bg-white rounded"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
+        <div className="w-64 bg-white shadow-lg p-4 hidden md:block">
+          <div className="flex items-center mb-6">
+            <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold">
+              G
+            </div>
+            <h2 className="ml-2 text-lg font-semibold">Gunjan Bansal</h2>
+          </div>
+          <nav className="space-y-2">
+            <Link to="/my-orders" className="block p-2 hover:bg-gray-200 rounded">My Orders</Link>
+            <Link to="/account-settings" className="block p-2 hover:bg-gray-200 rounded">Account Settings</Link>
+            <Link to="/payments" className="block p-2 hover:bg-gray-200 rounded">Payments</Link>
+            <Link to="/my-stuff" className="block p-2 hover:bg-gray-200 rounded">My Stuff</Link>
+            <Link to="/my-wishlist" className="block p-2 hover:bg-gray-200 rounded">My Wishlist</Link>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left p-2 hover:bg-red-200 rounded text-red-600 flex items-center mt-4"
+            >
+              <LogOut className="w-5 h-5 mr-2" /> Logout
+            </button>
+          </nav>
+        </div>
       )}
 
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 transform ${
-          isVerified && isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } md:relative md:translate-x-0 w-64 bg-white shadow-lg p-4 transition-transform duration-300 z-40`}
-      >
-        <div className="flex items-center mb-6">
-          <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold">
-            G
-          </div>
-          <h2 className="ml-2 text-lg font-semibold">Gunjan Bansal</h2>
-        </div>
-        <nav className="space-y-2">
-          <Link to="/my-orders" className="block p-2 hover:bg-gray-200 rounded" onClick={() => setIsSidebarOpen(false)}>My Orders</Link>
-          <Link to="/account-settings" className="block p-2 hover:bg-gray-200 rounded" onClick={() => setIsSidebarOpen(false)}>Account Settings</Link>
-          <Link to="/payments" className="block p-2 hover:bg-gray-200 rounded" onClick={() => setIsSidebarOpen(false)}>Payments</Link>
-          <Link to="/my-stuff" className="block p-2 hover:bg-gray-200 rounded" onClick={() => setIsSidebarOpen(false)}>My Stuff</Link>
-          <Link to="/my-wishlist" className="block p-2 hover:bg-gray-200 rounded" onClick={() => setIsSidebarOpen(false)}>My Wishlist</Link>
-          <button
-            onClick={handleLogout}
-            className="w-full text-left p-2 hover:bg-red-200 rounded text-red-600 flex items-center mt-4"
-          >
-            <LogOut className="w-5 h-5 mr-2" /> Logout
-          </button>
-        </nav>
-      </div>
-
       {/* Main Content */}
-      <div className="flex-1 p-4 ml-0 md:ml-64">
+      <div className="flex-1 p-4">
         {popup.show && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white rounded-lg p-4 shadow-lg">
@@ -238,48 +210,35 @@ const UserDashboard = () => {
             </div>
           </div>
         ) : (
-          <div className="max-w-4xl mx-auto bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
-            <div className="mb-4">
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold mr-2">
-                  G
+          <div className="p-4">
+            <div className="max-w-4xl mx-auto bg-white rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4 p-4">Personal Information</h2>
+              <div className="p-4">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold mr-2">
+                    G
+                  </div>
+                  <div>
+                    <p className="font-semibold">{userData?.firstName || "N/A"} {userData?.lastName || "N/A"}</p>
+                    <p className="text-sm text-gray-500">+91-{userData?.emailOrMobile || "N/A"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold">{userData?.firstName || "N/A"} {userData?.lastName || "N/A"}</p>
-                  <p className="text-sm text-gray-500">+91-{userData?.emailOrMobile || "N/A"}</p>
+                <div className="space-y-2">
+                  <p><strong>Your Gender:</strong> {userData?.gender || "N/A"}</p>
+                  <button className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Edit</button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <p><strong>Your Gender:</strong> {userData?.gender || "N/A"}</p>
-                <button
-                  onClick={handleEdit}
-                  className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 flex items-center"
-                >
-                  <Edit2 className="w-4 h-4 mr-2" /> Edit
-                </button>
+              <div className="mt-6 p-4">
+                <h3 className="text-lg font-semibold">FAQs</h3>
+                <p>What happens when I update my email address or mobile number?</p>
+                <p>Your login & all mobile number/like-wise. You'll get all your account related communication on your updated email address or mobile number.</p>
+                <p>When will my Flipkart account be updated with the new email address or mobile number?</p>
+                <p>It happens as soon as you confirm the verification code sent to your email or mobile and save the changes.</p>
               </div>
-            </div>
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold">FAQs</h3>
-              <p>What happens when I update my email address or mobile number?</p>
-              <p>Your login & all mobile number/like-wise. You'll get all your account related communication on your updated email address or mobile number.</p>
-              <p>When will my Flipkart account be updated with the new email address or mobile number?</p>
-              <p>It happens as soon as you confirm the verification code sent to your email or mobile and save the changes.</p>
-            </div>
-            <div className="mt-6 flex space-x-4">
-              <button
-                onClick={handleDeactivate}
-                className="text-red-600 flex items-center"
-              >
-                <Trash2 className="w-4 h-4 mr-2" /> Deactivate Account
-              </button>
-              <button
-                onClick={handleDelete}
-                className="text-red-600 flex items-center"
-              >
-                <Trash2 className="w-4 h-4 mr-2" /> Delete Account
-              </button>
+              <div className="mt-6 p-4">
+                <button className="text-red-600">Deactivate Account</button>
+                <button className="text-red-600 ml-4">Delete Account</button>
+              </div>
             </div>
           </div>
         )}
