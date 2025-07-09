@@ -275,47 +275,6 @@ const getUserProfile = async (req, res) => {
     res.status(500).json({ error: "Error fetching profile" });
   }
 };
-// PUT /api/user/update-profile
-const updateProfile = async (req, res) => {
-  const { emailOrMobile, firstName, lastName, gender, address } = req.body;
-  let normalizedInput = emailOrMobile.includes("@")
-    ? emailOrMobile
-    : emailOrMobile.replace(/\D/g, "").replace(/^(\d{10})$/, "91$1");
-
-  try {
-    const user = await User.findOne({ emailOrMobile: normalizedInput });
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    if (firstName !== undefined) user.firstName = firstName;
-    if (lastName !== undefined) user.lastName = lastName;
-    if (gender !== undefined) user.gender = gender;
-    if (address !== undefined) user.address = address;
-
-    await user.save();
-    res.json({ success: true, message: "Profile updated successfully" });
-  } catch (err) {
-    console.error("❌ Error updating profile:", err.message);
-    res.status(500).json({ error: "Error updating profile" });
-  }
-};
-
-// DELETE /api/user/delete-profile
-const deleteProfile = async (req, res) => {
-  const { emailOrMobile } = req.body;
-  let normalizedInput = emailOrMobile.includes("@")
-    ? emailOrMobile
-    : emailOrMobile.replace(/\D/g, "").replace(/^(\d{10})$/, "91$1");
-
-  try {
-    const user = await User.findOneAndDelete({ emailOrMobile: normalizedInput });
-    if (!user) return res.status(404).json({ error: "User not found" });
-
-    res.json({ success: true, message: "User deleted successfully" });
-  } catch (err) {
-    console.error("❌ Error deleting profile:", err.message);
-    res.status(500).json({ error: "Error deleting profile" });
-  }
-};
 
 module.exports = {
   sendOTP,
@@ -326,6 +285,4 @@ module.exports = {
   verifyEmailOTP,
   resetPassword,
   getUserProfile,
-   updateProfile,      // 👈 add this
-  deleteProfile       // 👈 add this
 };

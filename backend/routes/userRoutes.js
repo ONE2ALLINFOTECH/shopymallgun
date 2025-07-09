@@ -7,8 +7,7 @@ const {
   sendEmailOTP,
   verifyEmailOTP,
   resetPassword,
-   updateProfile,
-  deleteProfile,
+  
 } = require("../controllers/userController");
 
 const { getUserProfile } = require("../controllers/userController");
@@ -22,7 +21,6 @@ router.post("/forgot/send-otp", sendEmailOTP);
 router.post("/forgot/verify-otp", verifyEmailOTP);
 router.post("/forgot/reset-password", resetPassword);
 router.get("/profile", getUserProfile);
-router.put("/update-profile", updateProfile);
-router.delete("/delete-profile", deleteProfile);
+
 module.exports = router;
 
