@@ -1,32 +1,26 @@
 const User = require("../models/User");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
-const nodemailer = require("nodemailer");
+
 
 const sendOTP = async (req, res) => {
-  const { emailOrMobile, isRegistration = false } = req.body;
+  const { emailOrMobile } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
   const expiry = new Date(Date.now() + 10 * 60000);
+  console.log("🔍 BREVO_EMAIL:", process.env.BREVO_EMAIL);
+  console.log(
+    "🔍 BREVO_KEY:",
+    process.env.BREVO_KEY ? "✅ Present" : "❌ Missing"
+  );
 
   try {
     const isEmail = emailOrMobile.includes("@");
+
     let user = await User.findOne({ emailOrMobile });
-
-    // For registration, check if user already exists
-    if (isRegistration && user) {
-      return res.status(400).json({ error: "Email or mobile already exists" });
-    }
-
-    // If user doesn't exist, create a new user record (for dashboard, allow existing users)
-    if (!user) {
-      user = new User({ emailOrMobile });
-    }
+    if (!user) user = new User({ emailOrMobile });
 
     user.otp = otp;
     user.otpExpires = expiry;
-    await user.save();
-
-    console.log(`Generated OTP: ${otp} for ${emailOrMobile}`); // Log OTP for debugging
 
     if (isEmail) {
       const transporter = nodemailer.createTransport({
@@ -40,25 +34,29 @@ const sendOTP = async (req, res) => {
       });
 
       const mailOptions = {
-        from: `"Shopymol OTP" <no-reply@shopymol.com>`,
+        from: `"Shopymol OTP" <no-reply@shopymol.com>`, // ✅ FINAL FIX
         to: emailOrMobile,
         subject: "Shopymol OTP Verification",
-        text: `Your OTP for Shopymol ${isRegistration ? "registration" : "dashboard access"} is ${otp}. It is valid for 10 minutes.`,
+        text: `Your OTP for Shopymol registration is ${otp}. It is valid for 10 minutes.`,
       };
 
-      await transporter.sendMail(mailOptions);
-      console.log(`Email OTP sent to ${emailOrMobile}`);
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Email Sent:", info.response);
     } else {
-      const msg = `Your Shopymol ${isRegistration ? "registration" : "dashboard access"} OTP is ${otp}. Do not share it with anyone.`;
-      const url = `http://websms.textidea.com/app/smsapi/index.php?key=${process.env.TEXTIDEA_API_KEY}&campaign=${process.env.TEXTIDEA_CAMPAIGN}&routeid=${process.env.TEXTIDEA_ROUTEID}&type=text&contacts=${emailOrMobile}&senderid=${process.env.TEXTIDEA_SENDERID}&msg=${encodeURIComponent(msg)}`;
-      const response = await axios.get(url);
-      console.log(`SMS API response:`, response.data); // Log SMS API response for debugging
+      const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
+      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${emailOrMobile}&senderid=SHPMOL&msg=${encodeURIComponent(
+        msg
+      )}`;
+      await axios.get(url);
     }
 
+    await user.save();
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (error) {
     console.error("❌ Error sending OTP:", error.message);
-    res.status(500).json({ error: "OTP send failed" });
+    if (!res.headersSent) {
+      res.status(500).json({ error: "OTP send failed" });
+    }
   }
 };
 
@@ -93,6 +91,7 @@ const registerUser = async (req, res) => {
   res.json({ success: true, message: "User registered successfully" });
 };
 
+module.exports = { sendOTP, verifyOTP, registerUser };
 const saveProfileInfo = async (req, res) => {
   const { emailOrMobile, firstName, lastName, gender, address } = req.body;
 
@@ -110,13 +109,15 @@ const saveProfileInfo = async (req, res) => {
 
     await user.save();
 
-    res.json({ success: true, message: "Profile info saved successfully" });
+    res.json({ success: true, message: "Profile info saved" });
   } catch (err) {
-    console.error("❌ Error saving profile:", err.message);
     res.status(500).json({ error: "Error saving profile" });
   }
 };
 
+const nodemailer = require("nodemailer");
+
+// Send OTP via Email using Brevo SMTP
 const sendEmailOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
 
@@ -131,10 +132,8 @@ const sendEmailOTP = async (req, res) => {
     user.resetOtpExpires = expiry;
     await user.save();
 
-    console.log(`Generated Reset OTP: ${otp} for ${emailOrMobile}`); // Log OTP for debugging
-
     const transporter = nodemailer.createTransport({
-      host: "sms-relay.brevo.com",
+      host: "smtp-relay.brevo.com",
       port: 587,
       secure: false,
       auth: {
@@ -144,22 +143,20 @@ const sendEmailOTP = async (req, res) => {
     });
 
     const mailOptions = {
-      from: `"Shopymol" <${process.env.BREVO_EMAIL}>`,
+      from: `"ONE2ALL DEVLOPERS" <${process.env.BREVO_EMAIL}>`,
       to: emailOrMobile,
       subject: "Password Reset OTP - Shopymol",
       text: `Your OTP for password reset is ${otp}. It is valid for 10 minutes.`,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Reset Email OTP sent to ${emailOrMobile}`);
 
     res.json({ success: true, message: "OTP sent to email" });
   } catch (err) {
-    console.error("❌ Error sending reset OTP:", err.message);
+    console.log(err.message);
     res.status(500).json({ error: "Failed to send email OTP" });
   }
 };
-
 const verifyEmailOTP = async (req, res) => {
   const { emailOrMobile, otp } = req.body;
 
@@ -185,7 +182,6 @@ const resetPassword = async (req, res) => {
 
   res.json({ success: true, message: "Password reset successful" });
 };
-
 const getUserProfile = async (req, res) => {
   const { emailOrMobile } = req.query;
 
@@ -199,10 +195,10 @@ const getUserProfile = async (req, res) => {
       lastName: user.lastName,
       gender: user.gender,
       address: user.address,
-      isVerified: user.isVerified,
+      aadhaarVerified: user.aadhaarVerified,
+      panVerified: user.panVerified,
     });
-  } catch (err) {
-    console.error("❌ Error fetching profile:", err.message);
+  } catch {
     res.status(500).json({ error: "Error fetching profile" });
   }
 };
@@ -211,7 +207,8 @@ module.exports = {
   sendOTP,
   verifyOTP,
   registerUser,
-  saveProfileInfo,
+  saveProfileInfo, // Add this to exports
+ 
   sendEmailOTP,
   verifyEmailOTP,
   resetPassword,
