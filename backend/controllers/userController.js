@@ -63,8 +63,10 @@ const sendOTP = async (req, res) => {
       console.log(`Email OTP sent to ${emailOrMobile}`);
     } else {
       const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
-      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
-      try {
+const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${emailOrMobile}&senderid=SHPMOL&msg=${encodeURIComponent(
+        msg
+      )}`;
+            try {
         const response = await axios.get(url);
         console.log(`SMS API response for ${normalizedInput}:`, response.data);
       } catch (smsError) {
