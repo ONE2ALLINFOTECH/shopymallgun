@@ -102,7 +102,7 @@ const Register = () => {
     setLoading(true);
     setErrors({});
     try {
-      const res = await api.post("/send-otp", { emailOrMobile });
+      const res = await api.post("/user/send-otp", { emailOrMobile });
       showPopup("success", res.data.message);
       setIsOTPSent(true);
       setTimer(120);
@@ -118,7 +118,7 @@ const Register = () => {
     setLoading(true);
     setErrors({});
     try {
-      const res = await api.post("/send-otp", { emailOrMobile });
+      const res = await api.post("/user/send-otp", { emailOrMobile });
       showPopup("success", "OTP resent successfully!");
       setTimer(120);
       setCanResend(false);
@@ -138,7 +138,7 @@ const Register = () => {
     setLoading(true);
     setErrors({});
     try {
-      const res = await api.post("/verify-otp", { emailOrMobile, otp });
+      const res = await api.post("/user/verify-otp", { emailOrMobile, otp });
       showPopup("success", res.data.message);
       setIsOTPVerified(true);
     } catch (err) {
@@ -160,7 +160,7 @@ const Register = () => {
     setLoading(true);
     setErrors({});
     try {
-      const res = await api.post("/register", { emailOrMobile, password });
+      const res = await api.post("/user/register", { emailOrMobile, password });
       showPopup("success", res.data.message);
       setTimeout(() => {
         window.location.href = "/profile-info";
