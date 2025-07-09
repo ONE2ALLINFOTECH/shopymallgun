@@ -10,23 +10,36 @@ const sendOTP = async (req, res) => {
 
   try {
     const isEmail = emailOrMobile.includes("@");
-    let user = await User.findOne({ emailOrMobile });
+    let normalizedInput = emailOrMobile;
 
-    // For registration, check if user already exists
+    // Normalize mobile number
+    if (!isEmail) {
+      normalizedInput = emailOrMobile.replace(/\D/g, "");
+      if (normalizedInput.length === 10) {
+        normalizedInput = `91${normalizedInput}`;
+      }
+      if (!/^\+?91\d{10}$/.test(normalizedInput)) {
+        return res.status(400).json({ error: "Invalid mobile number format. Use +91XXXXXXXXXX or XXXXXXXXXX" });
+      }
+    }
+
+    let user = await User.findOne({ emailOrMobile: normalizedInput });
+
+    // For registration, check if user exists
     if (isRegistration && user) {
       return res.status(400).json({ error: "Email or mobile already exists" });
     }
 
-    // If user doesn't exist, create a new user record (for dashboard, allow existing users)
+    // Create new user if none exists
     if (!user) {
-      user = new User({ emailOrMobile });
+      user = new User({ emailOrMobile: normalizedInput });
     }
 
     user.otp = otp;
     user.otpExpires = expiry;
     await user.save();
 
-    console.log(`Generated OTP: ${otp} for ${emailOrMobile}`); // Log OTP for debugging
+    console.log(`Generated OTP: ${otp} for ${normalizedInput}`);
 
     if (isEmail) {
       const transporter = nodemailer.createTransport({
@@ -43,16 +56,21 @@ const sendOTP = async (req, res) => {
         from: `"Shopymol OTP" <no-reply@shopymol.com>`,
         to: emailOrMobile,
         subject: "Shopymol OTP Verification",
-        text: `Your OTP for Shopymol ${isRegistration ? "registration" : "dashboard access"} is ${otp}. It is valid for 10 minutes.`,
+        text: `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`,
       };
 
       await transporter.sendMail(mailOptions);
       console.log(`Email OTP sent to ${emailOrMobile}`);
     } else {
-      const msg = `Your Shopymol ${isRegistration ? "registration" : "dashboard access"} OTP is ${otp}. Do not share it with anyone.`;
-      const url = `http://websms.textidea.com/app/smsapi/index.php?key=${process.env.TEXTIDEA_API_KEY}&campaign=${process.env.TEXTIDEA_CAMPAIGN}&routeid=${process.env.TEXTIDEA_ROUTEID}&type=text&contacts=${emailOrMobile}&senderid=${process.env.TEXTIDEA_SENDERID}&msg=${encodeURIComponent(msg)}`;
-      const response = await axios.get(url);
-      console.log(`SMS API response:`, response.data); // Log SMS API response for debugging
+      const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
+      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
+      try {
+        const response = await axios.get(url);
+        console.log(`SMS API response for ${normalizedInput}:`, response.data);
+      } catch (smsError) {
+        console.error(`SMS API error for ${normalizedInput}:`, smsError.response?.data || smsError.message);
+        return res.status(500).json({ error: "Failed to send SMS OTP" });
+      }
     }
 
     res.json({ success: true, message: "OTP sent successfully" });
@@ -64,9 +82,32 @@ const sendOTP = async (req, res) => {
 
 const verifyOTP = async (req, res) => {
   const { emailOrMobile, otp } = req.body;
-  const user = await User.findOne({ emailOrMobile });
 
-  if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
+  if (!emailOrMobile || !otp) {
+    return res.status(400).json({ error: "Email/mobile and OTP are required" });
+  }
+
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) {
+      normalizedInput = `91${normalizedInput}`;
+    }
+  }
+
+  // Check both formats to handle database inconsistencies
+  const user = await User.findOne({
+    $or: [
+      { emailOrMobile: normalizedInput },
+      { emailOrMobile: normalizedInput.replace(/^91/, "") },
+    ],
+  });
+
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  if (user.otp !== otp || user.otpExpires < Date.now()) {
     return res.status(400).json({ error: "Invalid or expired OTP" });
   }
 
@@ -80,7 +121,15 @@ const verifyOTP = async (req, res) => {
 
 const registerUser = async (req, res) => {
   const { emailOrMobile, password } = req.body;
-  const user = await User.findOne({ emailOrMobile });
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) {
+      normalizedInput = `91${normalizedInput}`;
+    }
+  }
+
+  const user = await User.findOne({ emailOrMobile: normalizedInput });
 
   if (!user || !user.isVerified) {
     return res.status(400).json({ error: "OTP not verified" });
@@ -95,9 +144,16 @@ const registerUser = async (req, res) => {
 
 const saveProfileInfo = async (req, res) => {
   const { emailOrMobile, firstName, lastName, gender, address } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) {
+      normalizedInput = `91${normalizedInput}`;
+    }
+  }
 
   try {
-    const user = await User.findOne({ emailOrMobile });
+    const user = await User.findOne({ emailOrMobile: normalizedInput });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
@@ -131,10 +187,10 @@ const sendEmailOTP = async (req, res) => {
     user.resetOtpExpires = expiry;
     await user.save();
 
-    console.log(`Generated Reset OTP: ${otp} for ${emailOrMobile}`); // Log OTP for debugging
+    console.log(`Generated Reset OTP: ${otp} for ${emailOrMobile}`);
 
     const transporter = nodemailer.createTransport({
-      host: "sms-relay.brevo.com",
+      host: "smtp-relay.brevo.com",
       port: 587,
       secure: false,
       auth: {
@@ -188,9 +244,22 @@ const resetPassword = async (req, res) => {
 
 const getUserProfile = async (req, res) => {
   const { emailOrMobile } = req.query;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) {
+      normalizedInput = `91${normalizedInput}`;
+    }
+  }
 
   try {
-    const user = await User.findOne({ emailOrMobile });
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+
     if (!user) return res.status(404).json({ error: "User not found" });
 
     res.json({
