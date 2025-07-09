@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Shield, CheckCircle, AlertCircle, X, Send, Clock } from "lucide-react";
+import { Mail, Phone, Shield, CheckCircle, AlertCircle, X, Send, Clock } from "lucide-react";
 import api from "../api/api";
 
 const UserDashboard = () => {
