@@ -44,7 +44,7 @@ const ProfileInfo = () => {
     setLoading(true);
     setErrors({});
     try {
-      const res = await api.post("/profile-info", { ...formData, emailOrMobile });
+      const res = await api.post("/user/profile-info", { ...formData, emailOrMobile });
       showPopup("success", res.data.message);
       setTimeout(() => {
         navigate("/dashboard");
