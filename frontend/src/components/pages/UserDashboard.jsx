@@ -1,350 +1,235 @@
-import React, { useEffect, useState } from "react";
-import { User, Mail, Phone, MapPin, Shield, CreditCard, LogOut, CheckCircle, XCircle, Loader2, AlertCircle } from "lucide-react";
-import "./common.css"
-import api from "../api/api"
+import React, { useState, useEffect } from "react";
+import { Shield, CheckCircle, AlertCircle, X, Send, Clock } from "lucide-react";
+import api from "../api/api";
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showInputModal, setShowInputModal] = useState(true);
-  const [showErrorModal, setShowErrorModal] = useState(false);
-  const [inputValue, setInputValue] = useState("");
+  const [otp, setOtp] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [popup, setPopup] = useState({ show: false, type: "", message: "" });
+  const [timer, setTimer] = useState(120);
+  const [canResend, setCanResend] = useState(false);
 
   useEffect(() => {
-    // No prompt, we'll use our custom modal
-  }, []);
+    let interval;
+    if (!isVerified && timer > 0) {
+      interval = setInterval(() => {
+        setTimer((prev) => {
+          if (prev <= 1) {
+            setCanResend(true);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isVerified, timer]);
 
-  const fetchProfile = async (input) => {
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const showPopup = (type, message) => {
+    setPopup({ show: true, type, message });
+    setTimeout(() => {
+      setPopup({ show: false, type: "", message: "" });
+    }, 3000);
+  };
+
+  const handleSendOTP = async () => {
+    if (!emailOrMobile.trim()) {
+      showPopup("error", "Email or mobile number is required");
+      return;
+    }
     setLoading(true);
-    setError("");
     try {
-      // Replace with your actual API call
-      const res = await api.get(`/user/profile?emailOrMobile=${input}`);
-      if (!res.ok) throw new Error("Failed to fetch profile");
-      const data = await res.json();
-      setProfile(data);
+      const res = await api.post("/send-otp", { emailOrMobile });
+      showPopup("success", res.data.message);
+      setTimer(120);
+      setCanResend(false);
     } catch (err) {
-      setError("Could not fetch profile. Please try again.");
-      setShowErrorModal(true);
-      console.error("Profile fetch error:", err);
+      showPopup("error", err.response?.data?.error || "Failed to send OTP");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputSubmit = () => {
-    if (inputValue.trim()) {
-      setEmailOrMobile(inputValue.trim());
-      setShowInputModal(false);
-      fetchProfile(inputValue.trim());
+  const handleVerifyOTP = async () => {
+    if (!otp.trim()) {
+      showPopup("error", "OTP is required");
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.post("/verify-otp", { emailOrMobile, otp });
+      const res = await api.get(`/profile?emailOrMobile=${emailOrMobile}`);
+      setUserData(res.data);
+      setIsVerified(true);
+      showPopup("success", "OTP verified successfully");
+    } catch (err) {
+      showPopup("error", err.response?.data?.error || "OTP verification failed");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleRetry = () => {
-    setShowErrorModal(false);
-    setShowInputModal(true);
-    setError("");
-    setInputValue("");
+  const handleResendOTP = async () => {
+    setLoading(true);
+    try {
+      const res = await api.post("/send-otp", { emailOrMobile });
+      showPopup("success", "OTP resent successfully");
+      setTimer(120);
+      setCanResend(false);
+      setOtp("");
+    } catch (err) {
+      showPopup("error", err.response?.data?.error || "Failed to resend OTP");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleLogout = () => {
-    setProfile(null);
-    setEmailOrMobile("");
-    setShowInputModal(true);
-    setInputValue("");
-  };
-
-  // Input Modal Component
-  const InputModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100">
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <User className="w-8 h-8 text-blue-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Welcome Back!</h2>
-            <p className="text-gray-600">Enter your email or mobile number to access your dashboard</p>
-          </div>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email or Mobile Number
-              </label>
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleInputSubmit()}
-                placeholder="Enter your email or mobile number"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                autoFocus
-              />
-            </div>
-            
-            <button
-              onClick={handleInputSubmit}
-              disabled={!inputValue.trim()}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-            >
-              Access Dashboard
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Error Modal Component
-  const ErrorModal = () => (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all duration-300 scale-100">
-        <div className="p-6">
-          <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <AlertCircle className="w-8 h-8 text-red-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Oops! Something went wrong</h2>
-            <p className="text-gray-600">{error}</p>
-          </div>
-          
-          <div className="space-y-3">
-            <button
-              onClick={handleRetry}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors"
-            >
-              Try Again
-            </button>
-            <button
-              onClick={() => setShowErrorModal(false)}
-              className="w-full bg-gray-100 text-gray-700 py-3 rounded-lg font-medium hover:bg-gray-200 transition-colors"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // Show Input Modal
-  if (showInputModal) {
-    return <InputModal />;
-  }
-
-  // Show Error Modal
-  if (showErrorModal) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <ErrorModal />
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">Loading Profile</h2>
-            <p className="text-gray-600">Please wait while we fetch your information...</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error && !showErrorModal) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full mx-4">
-          <div className="text-center">
-            <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">Error</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <button
-              onClick={handleRetry}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Try Again
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!profile) return null;
+  const isEmail = emailOrMobile.includes("@");
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="container mx-auto px-4 max-w-4xl">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">User Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {profile.firstName}!</p>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-2 sm:p-4">
+      {popup.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
+          <div className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 transform transition-all duration-300 ${popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${popup.type === "success" ? "bg-green-100" : "bg-red-100"}`}>
+                  {popup.type === "success" ? <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" /> : <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />}
+                </div>
+                <h3 className={`font-semibold text-base sm:text-lg ${popup.type === "success" ? "text-green-800" : "text-red-800"}`}>{popup.type === "success" ? "Success!" : "Error!"}</h3>
+              </div>
+              <button onClick={() => setPopup({ show: false, type: "", message: "" })} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
+              </button>
+            </div>
+            <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">{popup.message}</p>
+            <div className={`w-full h-1 rounded-full ${popup.type === "success" ? "bg-green-200" : "bg-red-200"}`}>
+              <div className={`h-full rounded-full animate-pulse ${popup.type === "success" ? "bg-green-500" : "bg-red-500"}`} style={{ width: "100%" }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg xl:max-w-xl">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4">
+            <Shield className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">User Dashboard</h1>
         </div>
 
-        {/* Main Dashboard Card */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-          {/* Profile Header */}
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-8 py-6">
-            <div className="flex items-center">
-              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mr-4">
-                <User className="w-8 h-8 text-blue-600" />
-              </div>
+        {!isVerified ? (
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100 backdrop-blur-sm">
+            <div className="space-y-4 sm:space-y-6">
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {profile.firstName} {profile.lastName}
-                </h2>
-                <p className="text-blue-100">{profile.emailOrMobile}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Profile Content */}
-          <div className="p-8">
-            {/* Personal Information */}
-            <div className="grid md:grid-cols-2 gap-6 mb-8">
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <User className="w-5 h-5 mr-2 text-blue-600" />
-                  Personal Information
-                </h3>
-                
-                <div className="space-y-3">
-                  <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                    <User className="w-4 h-4 text-gray-500 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500">Full Name</p>
-                      <p className="font-medium">{profile.firstName} {profile.lastName}</p>
-                    </div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    {isEmail ? <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" /> : <Phone className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />}
                   </div>
-
-                  <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                    {profile.emailOrMobile.includes('@') ? (
-                      <Mail className="w-4 h-4 text-gray-500 mr-3" />
-                    ) : (
-                      <Phone className="w-4 h-4 text-gray-500 mr-3" />
-                    )}
-                    <div>
-                      <p className="text-sm text-gray-500">
-                        {profile.emailOrMobile.includes('@') ? 'Email' : 'Mobile'}
-                      </p>
-                      <p className="font-medium">{profile.emailOrMobile}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center p-3 bg-gray-50 rounded-lg">
-                    <User className="w-4 h-4 text-gray-500 mr-3" />
-                    <div>
-                      <p className="text-sm text-gray-500">Gender</p>
-                      <p className="font-medium capitalize">{profile.gender}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start p-3 bg-gray-50 rounded-lg">
-                    <MapPin className="w-4 h-4 text-gray-500 mr-3 mt-1" />
-                    <div>
-                      <p className="text-sm text-gray-500">Address</p>
-                      <p className="font-medium">{profile.address}</p>
-                    </div>
-                  </div>
+                  <input
+                    type="text"
+                    value={emailOrMobile}
+                    onChange={(e) => setEmailOrMobile(e.target.value)}
+                    className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                    placeholder="Enter email or mobile number"
+                  />
                 </div>
               </div>
-
-              {/* Verification Status */}
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                  <Shield className="w-5 h-5 mr-2 text-blue-600" />
-                  Verification Status
-                </h3>
-                
-                <div className="space-y-3">
-                  <div className={`p-4 rounded-lg border-2 ${
-                    profile.aadhaarVerified 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-red-50 border-red-200'
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <CreditCard className="w-5 h-5 mr-3 text-gray-600" />
-                        <div>
-                          <p className="font-medium">Aadhaar Verification</p>
-                          <p className="text-sm text-gray-500">Government ID verification</p>
-                        </div>
-                      </div>
-                      {profile.aadhaarVerified ? (
-                        <CheckCircle className="w-6 h-6 text-green-600" />
-                      ) : (
-                        <XCircle className="w-6 h-6 text-red-600" />
-                      )}
-                    </div>
+              <button
+                onClick={handleSendOTP}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span>Send OTP</span>
+                  </>
+                )}
+              </button>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Enter OTP</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                   </div>
-
-                  <div className={`p-4 rounded-lg border-2 ${
-                    profile.panVerified 
-                      ? 'bg-green-50 border-green-200' 
-                      : 'bg-red-50 border-red-200'
-                  }`}>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center">
-                        <CreditCard className="w-5 h-5 mr-3 text-gray-600" />
-                        <div>
-                          <p className="font-medium">PAN Verification</p>
-                          <p className="text-sm text-gray-500">Tax identification verification</p>
-                        </div>
-                      </div>
-                      {profile.panVerified ? (
-                        <CheckCircle className="w-6 h-6 text-green-600" />
-                      ) : (
-                        <XCircle className="w-6 h-6 text-red-600" />
-                      )}
-                    </div>
-                  </div>
+                  <input
+                    type="text"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                    placeholder="Enter 6-digit OTP"
+                    maxLength={6}
+                  />
                 </div>
-
-                {/* Verification Summary */}
-                <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">Verification Summary</h4>
-                  <div className="flex items-center text-sm text-blue-600">
-                    <div className="w-full bg-blue-200 rounded-full h-2 mr-3">
-                      <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{ 
-                          width: `${((profile.aadhaarVerified ? 1 : 0) + (profile.panVerified ? 1 : 0)) * 50}%` 
-                        }}
-                      ></div>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 space-y-1 sm:space-y-0">
+                  <p className="text-xs sm:text-sm text-gray-500 break-all">OTP sent to {emailOrMobile}</p>
+                  {timer > 0 && (
+                    <div className="flex items-center space-x-1 text-xs sm:text-sm text-blue-600">
+                      <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                      <span>{formatTime(timer)}</span>
                     </div>
-                    <span className="font-medium">
-                      {((profile.aadhaarVerified ? 1 : 0) + (profile.panVerified ? 1 : 0)) * 50}% Complete
-                    </span>
-                  </div>
+                  )}
                 </div>
               </div>
-            </div>
-
-            {/* Actions */}
-            <div className="border-t pt-6">
-              <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
-                <div className="text-sm text-gray-500">
-                  Last updated: {new Date().toLocaleDateString()}
-                </div>
+              <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-md hover:shadow-lg"
+                  onClick={handleVerifyOTP}
+                  disabled={loading}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
                 >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
+                  {loading ? (
+                    <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span>Verify OTP</span>
+                    </>
+                  )}
                 </button>
+                {canResend && (
+                  <button
+                    onClick={handleResendOTP}
+                    disabled={loading}
+                    className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                  >
+                    {loading ? (
+                      <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+                        <span>Resend</span>
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100 backdrop-blur-sm">
+            <h2 className="text-xl sm:text-2xl font-semibold mb-4 sm:mb-6">Profile Details</h2>
+            <div className="space-y-4">
+              <p><strong>Email/Mobile:</strong> {userData?.emailOrMobile}</p>
+              <p><strong>First Name:</strong> {userData?.firstName}</p>
+              <p><strong>Last Name:</strong> {userData?.lastName}</p>
+              <p><strong>Gender:</strong> {userData?.gender}</p>
+              <p><strong>Address:</strong> {userData?.address}</p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
