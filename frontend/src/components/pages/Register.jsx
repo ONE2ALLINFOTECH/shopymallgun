@@ -90,45 +90,45 @@ const Register = () => {
     }
   };
 
-  const handleSendOTP = async () => {
-    if (!emailOrMobile.trim()) {
-      setErrors({ emailOrMobile: "Email or mobile number is required" });
-      return;
-    }
-    if (!isCaptchaVerified) {
-      showPopup("error", "Please verify CAPTCHA first");
-      return;
-    }
-    setLoading(true);
-    setErrors({});
-    try {
-      const res = await api.post("/user/send-otp", { emailOrMobile });
-      showPopup("success", res.data.message);
-      setIsOTPSent(true);
-      setTimer(120);
-      setCanResend(false);
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to send OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleSendOTP = async () => {
+  if (!emailOrMobile.trim()) {
+    setErrors({ emailOrMobile: "Email or mobile number is required" });
+    return;
+  }
+  if (!isCaptchaVerified) {
+    showPopup("error", "Please verify CAPTCHA first");
+    return;
+  }
+  setLoading(true);
+  setErrors({});
+  try {
+    const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: true }); // Add isRegistration: true
+    showPopup("success", res.data.message);
+    setIsOTPSent(true);
+    setTimer(120);
+    setCanResend(false);
+  } catch (err) {
+    showPopup("error", err.response?.data?.error || "Failed to send OTP");
+  } finally {
+    setLoading(false);
+  }
+};
 
-  const handleResendOTP = async () => {
-    setLoading(true);
-    setErrors({});
-    try {
-      const res = await api.post("/user/send-otp", { emailOrMobile });
-      showPopup("success", "OTP resent successfully!");
-      setTimer(120);
-      setCanResend(false);
-      setOtp("");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to resend OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
+const handleResendOTP = async () => {
+  setLoading(true);
+  setErrors({});
+  try {
+    const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: true }); // Add isRegistration: true
+    showPopup("success", "OTP resent successfully!");
+    setTimer(120);
+    setCanResend(false);
+    setOtp("");
+  } catch (err) {
+    showPopup("error", err.response?.data?.error || "Failed to resend OTP");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleVerifyOTP = async () => {
     if (!otp.trim()) {

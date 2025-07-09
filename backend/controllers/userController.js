@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
 
 const sendOTP = async (req, res) => {
-  const { emailOrMobile } = req.body;
+  const { emailOrMobile, isRegistration = false } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
   const expiry = new Date(Date.now() + 10 * 60000);
 
@@ -12,13 +12,21 @@ const sendOTP = async (req, res) => {
     const isEmail = emailOrMobile.includes("@");
     let user = await User.findOne({ emailOrMobile });
 
-    if (user) {
+    // For registration, check if user already exists
+    if (isRegistration && user) {
       return res.status(400).json({ error: "Email or mobile already exists" });
     }
 
-    user = new User({ emailOrMobile });
+    // If user doesn't exist, create a new user record (for dashboard, allow existing users)
+    if (!user) {
+      user = new User({ emailOrMobile });
+    }
+
     user.otp = otp;
     user.otpExpires = expiry;
+    await user.save();
+
+    console.log(`Generated OTP: ${otp} for ${emailOrMobile}`); // Log OTP for debugging
 
     if (isEmail) {
       const transporter = nodemailer.createTransport({
@@ -35,17 +43,18 @@ const sendOTP = async (req, res) => {
         from: `"Shopymol OTP" <no-reply@shopymol.com>`,
         to: emailOrMobile,
         subject: "Shopymol OTP Verification",
-        text: `Your OTP for Shopymol registration is ${otp}. It is valid for 10 minutes.`,
+        text: `Your OTP for Shopymol ${isRegistration ? "registration" : "dashboard access"} is ${otp}. It is valid for 10 minutes.`,
       };
 
       await transporter.sendMail(mailOptions);
+      console.log(`Email OTP sent to ${emailOrMobile}`);
     } else {
-      const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
+      const msg = `Your Shopymol ${isRegistration ? "registration" : "dashboard access"} OTP is ${otp}. Do not share it with anyone.`;
       const url = `http://websms.textidea.com/app/smsapi/index.php?key=${process.env.TEXTIDEA_API_KEY}&campaign=${process.env.TEXTIDEA_CAMPAIGN}&routeid=${process.env.TEXTIDEA_ROUTEID}&type=text&contacts=${emailOrMobile}&senderid=${process.env.TEXTIDEA_SENDERID}&msg=${encodeURIComponent(msg)}`;
-      await axios.get(url);
+      const response = await axios.get(url);
+      console.log(`SMS API response:`, response.data); // Log SMS API response for debugging
     }
 
-    await user.save();
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (error) {
     console.error("❌ Error sending OTP:", error.message);
@@ -103,6 +112,7 @@ const saveProfileInfo = async (req, res) => {
 
     res.json({ success: true, message: "Profile info saved successfully" });
   } catch (err) {
+    console.error("❌ Error saving profile:", err.message);
     res.status(500).json({ error: "Error saving profile" });
   }
 };
@@ -121,8 +131,10 @@ const sendEmailOTP = async (req, res) => {
     user.resetOtpExpires = expiry;
     await user.save();
 
+    console.log(`Generated Reset OTP: ${otp} for ${emailOrMobile}`); // Log OTP for debugging
+
     const transporter = nodemailer.createTransport({
-      host: "smtp-relay.brevo.com",
+      host: "sms-relay.brevo.com",
       port: 587,
       secure: false,
       auth: {
@@ -139,10 +151,11 @@ const sendEmailOTP = async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+    console.log(`Reset Email OTP sent to ${emailOrMobile}`);
 
     res.json({ success: true, message: "OTP sent to email" });
   } catch (err) {
-    console.error(err.message);
+    console.error("❌ Error sending reset OTP:", err.message);
     res.status(500).json({ error: "Failed to send email OTP" });
   }
 };
@@ -188,7 +201,8 @@ const getUserProfile = async (req, res) => {
       address: user.address,
       isVerified: user.isVerified,
     });
-  } catch {
+  } catch (err) {
+    console.error("❌ Error fetching profile:", err.message);
     res.status(500).json({ error: "Error fetching profile" });
   }
 };
