@@ -97,31 +97,33 @@ const UserDashboard = () => {
 
   return (
     <div className="flex min-h-screen bg-gray-100">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg p-4">
-        <div className="flex items-center mb-6">
-          <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold">
-            G
+      {/* Sidebar - Shown only when verified */}
+      {isVerified && (
+        <div className="w-64 bg-white shadow-lg p-4 hidden md:block">
+          <div className="flex items-center mb-6">
+            <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold">
+              G
+            </div>
+            <h2 className="ml-2 text-lg font-semibold">Gunjan Bansal</h2>
           </div>
-          <h2 className="ml-2 text-lg font-semibold">Gunjan Bansal</h2>
+          <nav className="space-y-2">
+            <Link to="/my-orders" className="block p-2 hover:bg-gray-200 rounded">My Orders</Link>
+            <Link to="/account-settings" className="block p-2 hover:bg-gray-200 rounded">Account Settings</Link>
+            <Link to="/payments" className="block p-2 hover:bg-gray-200 rounded">Payments</Link>
+            <Link to="/my-stuff" className="block p-2 hover:bg-gray-200 rounded">My Stuff</Link>
+            <Link to="/my-wishlist" className="block p-2 hover:bg-gray-200 rounded">My Wishlist</Link>
+            <button
+              onClick={handleLogout}
+              className="w-full text-left p-2 hover:bg-red-200 rounded text-red-600 flex items-center mt-4"
+            >
+              <LogOut className="w-5 h-5 mr-2" /> Logout
+            </button>
+          </nav>
         </div>
-        <nav className="space-y-2">
-          <Link to="/my-orders" className="block p-2 hover:bg-gray-200 rounded">My Orders</Link>
-          <Link to="/account-settings" className="block p-2 hover:bg-gray-200 rounded">Account Settings</Link>
-          <Link to="/payments" className="block p-2 hover:bg-gray-200 rounded">Payments</Link>
-          <Link to="/my-stuff" className="block p-2 hover:bg-gray-200 rounded">My Stuff</Link>
-          <Link to="/my-wishlist" className="block p-2 hover:bg-gray-200 rounded">My Wishlist</Link>
-          <button
-            onClick={handleLogout}
-            className="w-full text-left p-2 hover:bg-red-200 rounded text-red-600 flex items-center mt-4"
-          >
-            <LogOut className="w-5 h-5 mr-2" /> Logout
-          </button>
-        </nav>
-      </div>
+      )}
 
       {/* Main Content */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-4">
         {popup.show && (
           <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
             <div className="bg-white rounded-lg p-4 shadow-lg">
@@ -144,7 +146,7 @@ const UserDashboard = () => {
         )}
 
         {!isVerified ? (
-          <div className="bg-white p-6 rounded-lg shadow">
+          <div className="max-w-md mx-auto bg-white p-6 rounded-lg shadow">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold">Email or Mobile Number</label>
@@ -208,33 +210,35 @@ const UserDashboard = () => {
             </div>
           </div>
         ) : (
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
-            <div>
-              <div className="flex items-center mb-4">
-                <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold mr-2">
-                  G
+          <div className="p-4">
+            <div className="max-w-4xl mx-auto bg-white rounded-lg shadow">
+              <h2 className="text-xl font-semibold mb-4 p-4">Personal Information</h2>
+              <div className="p-4">
+                <div className="flex items-center mb-4">
+                  <div className="w-10 h-10 bg-yellow-400 rounded-full flex items-center justify-center text-white font-bold mr-2">
+                    G
+                  </div>
+                  <div>
+                    <p className="font-semibold">{userData?.firstName || "N/A"} {userData?.lastName || "N/A"}</p>
+                    <p className="text-sm text-gray-500">+91-{userData?.emailOrMobile || "N/A"}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-semibold">{userData?.firstName || "N/A"} {userData?.lastName || "N/A"}</p>
-                  <p className="text-sm text-gray-500">+91-{userData?.emailOrMobile || "N/A"}</p>
+                <div className="space-y-2">
+                  <p><strong>Your Gender:</strong> {userData?.gender || "N/A"}</p>
+                  <button className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Edit</button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <p><strong>Your Gender:</strong> {userData?.gender || "N/A"}</p>
-                <button className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700">Edit</button>
+              <div className="mt-6 p-4">
+                <h3 className="text-lg font-semibold">FAQs</h3>
+                <p>What happens when I update my email address or mobile number?</p>
+                <p>Your login & all mobile number/like-wise. You'll get all your account related communication on your updated email address or mobile number.</p>
+                <p>When will my Flipkart account be updated with the new email address or mobile number?</p>
+                <p>It happens as soon as you confirm the verification code sent to your email or mobile and save the changes.</p>
               </div>
-            </div>
-            <div className="mt-6">
-              <h3 className="text-lg font-semibold">FAQs</h3>
-              <p>What happens when I update my email address or mobile number?</p>
-              <p>Your login & all mobile number/like-wise. You'll get all your account related communication on your updated email address or mobile number.</p>
-              <p>When will my Flipkart account be updated with the new email address or mobile number?</p>
-              <p>It happens as soon as you confirm the verification code sent to your email or mobile and save the changes.</p>
-            </div>
-            <div className="mt-6">
-              <button className="text-red-600">Deactivate Account</button>
-              <button className="text-red-600 ml-4">Delete Account</button>
+              <div className="mt-6 p-4">
+                <button className="text-red-600">Deactivate Account</button>
+                <button className="text-red-600 ml-4">Delete Account</button>
+              </div>
             </div>
           </div>
         )}
