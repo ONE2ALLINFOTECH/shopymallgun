@@ -17,6 +17,48 @@ const UserDashboard = () => {
   const [timer, setTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+const [editMode, setEditMode] = useState(false);
+const [formData, setFormData] = useState({
+  firstName: "",
+  lastName: "",
+  gender: "",
+  address: "",
+});
+
+setUserData(res.data);
+setFormData({
+  firstName: res.data.firstName || "",
+  lastName: res.data.lastName || "",
+  gender: res.data.gender || "",
+  address: res.data.address || "",
+});
+
+const handleSaveProfile = async () => {
+  try {
+    await api.put("/user/update-profile", {
+      emailOrMobile,
+      ...formData,
+    });
+    setUserData({ ...userData, ...formData });
+    setEditMode(false);
+    showPopup("success", "Profile updated successfully");
+  } catch (err) {
+    showPopup("error", err.response?.data?.error || "Failed to update profile");
+  }
+};
+
+const handleDeleteAccount = async () => {
+  if (!window.confirm("Are you sure you want to delete your account permanently?")) return;
+  try {
+    await api.delete("/user/delete-profile", {
+      data: { emailOrMobile },
+    });
+    handleLogout();
+    showPopup("success", "Account deleted permanently");
+  } catch (err) {
+    showPopup("error", err.response?.data?.error || "Failed to delete account");
+  }
+};
 
   useEffect(() => {
     let interval;
@@ -265,66 +307,81 @@ const UserDashboard = () => {
       <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div>
-            <input
-              type="text"
-              value={userData.firstName}
-              className="w-full p-2 border rounded"
-              placeholder="First Name"
-              readOnly
-            />
+          <input
+  type="text"
+  value={editMode ? formData.firstName : userData.firstName}
+  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+  className="w-full p-2 border rounded"
+  placeholder="First Name"
+  readOnly={!editMode}
+/>
           </div>
           <div>
-            <input
-              type="text"
-              value={userData.lastName}
-              className="w-full p-2 border rounded"
-              placeholder="Last Name"
-              readOnly
-            />
-          </div>
-        </div>
-        
-        <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Your Gender</label>
-          <div className="flex space-x-4">
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="gender"
-                value="Male"
-                checked={userData.gender === "Male"}
-                className="mr-2"
-                disabled
-              />
-              Male
-            </label>
-            <label className="flex items-center">
-              <input
-                type="radio"
-                name="gender"
-                value="Female"
-                checked={userData.gender === "Female"}
-                className="mr-2"
-                disabled
-              />
-              Female
-            </label>
-          </div>
-        </div>
-        
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium">Email Address</label>
-            <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
-          </div>
           <input
-            type="email"
-            value={userData.email}
-            className="w-full p-2 border rounded bg-gray-50"
-            readOnly
-          />
+  type="text"
+  value={editMode ? formData.lastNameName : userData.lastName}
+  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+  className="w-full p-2 border rounded"
+  placeholder="Last Name"
+  readOnly={!editMode}
+/>
+          </div>
         </div>
         
+       <div className="mb-6">
+  <label className="block text-sm font-medium mb-2">Your Gender</label>
+  <div className="flex space-x-4">
+    <label className="flex items-center">
+      <input
+        type="radio"
+        name="gender"
+        value="Male"
+        checked={formData.gender === "Male"}
+        onChange={handleChange}
+        className="mr-2"
+        disabled={!isEditing}
+      />
+      Male
+    </label>
+    <label className="flex items-center">
+      <input
+        type="radio"
+        name="gender"
+        value="Female"
+        checked={formData.gender === "Female"}
+        onChange={handleChange}
+        className="mr-2"
+        disabled={!isEditing}
+      />
+      Female
+    </label>
+    <label className="flex items-center">
+      <input
+        type="radio"
+        name="gender"
+        value="Other"
+        checked={formData.gender === "Other"}
+        onChange={handleChange}
+        className="mr-2"
+        disabled={!isEditing}
+      />
+      Other
+    </label>
+  </div>
+</div>
+
+       <div className="mb-6">
+  <label className="block text-sm font-medium mb-2">Address</label>
+  <textarea
+    name="address"
+    value={formData.address}
+    onChange={handleChange}
+    rows={3}
+    readOnly={!isEditing}
+    className={`w-full p-2 border rounded ${!isEditing ? "bg-gray-100" : ""}`}
+    placeholder="Enter your address"
+  />
+</div>
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium">Mobile Number</label>
@@ -337,6 +394,22 @@ const UserDashboard = () => {
             readOnly
           />
         </div>
+        {editMode ? (
+  <div className="space-x-3">
+    <button onClick={handleSaveProfile} className="text-green-600 hover:text-green-800">Save</button>
+    <button onClick={() => setEditMode(false)} className="text-gray-600 hover:text-gray-800">Cancel</button>
+  </div>
+) : (
+  <button onClick={() => setEditMode(true)} className="text-blue-600 hover:text-blue-800">
+    <Edit3 className="w-4 h-4" />
+  </button>
+)}
+<button 
+  onClick={handleDeleteAccount} 
+  className="text-red-600 hover:text-red-800"
+>
+  Delete Account
+</button>
         
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold mb-4">FAQs</h3>
