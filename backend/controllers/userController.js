@@ -12,6 +12,7 @@ const sendOTP = async (req, res) => {
     const isEmail = emailOrMobile.includes("@");
     let normalizedInput = emailOrMobile;
 
+    // Normalize mobile number
     if (!isEmail) {
       normalizedInput = emailOrMobile.replace(/\D/g, "");
       if (normalizedInput.length === 10) {
@@ -24,10 +25,12 @@ const sendOTP = async (req, res) => {
 
     let user = await User.findOne({ emailOrMobile: normalizedInput });
 
+    // For registration, check if user exists
     if (isRegistration && user) {
       return res.status(400).json({ error: "Email or mobile already exists" });
     }
 
+    // Create new user if none exists
     if (!user) {
       user = new User({ emailOrMobile: normalizedInput });
     }
@@ -92,6 +95,7 @@ const verifyOTP = async (req, res) => {
     }
   }
 
+  // Check both formats to handle database inconsistencies
   const user = await User.findOne({
     $or: [
       { emailOrMobile: normalizedInput },
@@ -139,10 +143,8 @@ const registerUser = async (req, res) => {
 };
 
 const saveProfileInfo = async (req, res) => {
-  const { emailOrMobile, firstName, lastName, gender, email, newEmailOrMobile } = req.body;
+  const { emailOrMobile, firstName, lastName, gender, address } = req.body;
   let normalizedInput = emailOrMobile;
-  let normalizedNewInput = newEmailOrMobile;
-
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
     if (normalizedInput.length === 10) {
@@ -150,42 +152,17 @@ const saveProfileInfo = async (req, res) => {
     }
   }
 
-  if (newEmailOrMobile && !newEmailOrMobile.includes("@")) {
-    normalizedNewInput = newEmailOrMobile.replace(/\D/g, "");
-    if (normalizedNewInput.length === 10) {
-      normalizedNewInput = `91${normalizedNewInput}`;
-    }
-    if (!/^\+?91\d{10}$/.test(normalizedNewInput)) {
-      return res.status(400).json({ error: "Invalid mobile number format for new mobile number" });
-    }
-  }
-
   try {
-    const user = await User.findOne({
-      $or: [
-        { emailOrMobile: normalizedInput },
-        { emailOrMobile: normalizedInput.replace(/^91/, "") },
-      ],
-    });
+    const user = await User.findOne({ emailOrMobile: normalizedInput });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Update fields only if provided
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (gender) user.gender = gender;
-    if (email) user.email = email;
-    if (newEmailOrMobile && user.isVerified) {
-      // Ensure new emailOrMobile is unique
-      const existingUser = await User.findOne({ emailOrMobile: normalizedNewInput });
-      if (existingUser && existingUser.emailOrMobile !== user.emailOrMobile) {
-        return res.status(400).json({ error: "New email or mobile already exists" });
-      }
-      user.emailOrMobile = normalizedNewInput;
-      user.isVerified = true; // Retain verified status for new emailOrMobile
-    }
+    user.firstName = firstName;
+    user.lastName = lastName;
+    user.gender = gender;
+    user.address = address;
 
     await user.save();
 
@@ -196,68 +173,12 @@ const saveProfileInfo = async (req, res) => {
   }
 };
 
-const deleteAccount = async (req, res) => {
-  const { emailOrMobile } = req.body;
-  let normalizedInput = emailOrMobile;
-  if (!emailOrMobile.includes("@")) {
-    normalizedInput = emailOrMobile.replace(/\D/g, "");
-    if (normalizedInput.length === 10) {
-      normalizedInput = `91${normalizedInput}`;
-    }
-  }
-
-  try {
-    const user = await User.findOne({
-      $or: [
-        { emailOrMobile: normalizedInput },
-        { emailOrMobile: normalizedInput.replace(/^91/, "") },
-      ],
-    });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    await User.deleteOne({ emailOrMobile: user.emailOrMobile });
-    res.json({ success: true, message: "Account deleted successfully" });
-  } catch (err) {
-    console.error("❌ Error deleting account:", err.message);
-    res.status(500).json({ error: "Error deleting account" });
-  }
-};
-
 const sendEmailOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
 
   try {
     const user = await User.findOne({ emailOrMobile });
-    if (!user) {
-      // Create a temporary user for OTP verification if the email is new
-      const otp = Math.floor(100000 + Math.random() * 900000);
-      const expiry = new Date(Date.now() + 10 * 60000);
-      const tempUser = new User({ emailOrMobile, resetOtp: otp, resetOtpExpires: expiry });
-      await tempUser.save();
-
-      const transporter = nodemailer.createTransport({
-        host: "smtp-relay.brevo.com",
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.BREVO_EMAIL,
-          pass: process.env.BREVO_KEY,
-        },
-      });
-
-      const mailOptions = {
-        from: `"Shopymol" <${process.env.BREVO_EMAIL}>`,
-        to: emailOrMobile,
-        subject: "Password Reset OTP - Shopymol",
-        text: `Your OTP for email verification is ${otp}. It is valid for 10 minutes.`,
-      };
-
-      await transporter.sendMail(mailOptions);
-      console.log(`Email OTP sent to ${emailOrMobile}`);
-      return res.json({ success: true, message: "OTP sent to email" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     const expiry = new Date(Date.now() + 10 * 60000);
@@ -281,12 +202,12 @@ const sendEmailOTP = async (req, res) => {
     const mailOptions = {
       from: `"Shopymol" <${process.env.BREVO_EMAIL}>`,
       to: emailOrMobile,
-      subject: "Email Verification OTP - Shopymol",
-      text: `Your OTP for email verification is ${otp}. It is valid for 10 minutes.`,
+      subject: "Password Reset OTP - Shopymol",
+      text: `Your OTP for password reset is ${otp}. It is valid for 10 minutes.`,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Email OTP sent to ${emailOrMobile}`);
+    console.log(`Reset Email OTP sent to ${emailOrMobile}`);
 
     res.json({ success: true, message: "OTP sent to email" });
   } catch (err) {
@@ -302,10 +223,6 @@ const verifyEmailOTP = async (req, res) => {
   if (!user || user.resetOtp !== otp || user.resetOtpExpires < Date.now()) {
     return res.status(400).json({ error: "Invalid or expired OTP" });
   }
-
-  user.resetOtp = null;
-  user.resetOtpExpires = null;
-  await user.save();
 
   res.json({ success: true, message: "OTP verified" });
 };
@@ -350,7 +267,7 @@ const getUserProfile = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       gender: user.gender,
-      email: user.email,
+      address: user.address,
       isVerified: user.isVerified,
     });
   } catch (err) {
@@ -364,7 +281,6 @@ module.exports = {
   verifyOTP,
   registerUser,
   saveProfileInfo,
-  deleteAccount,
   sendEmailOTP,
   verifyEmailOTP,
   resetPassword,

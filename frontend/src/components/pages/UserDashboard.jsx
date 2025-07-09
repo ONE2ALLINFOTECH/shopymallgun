@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { 
-  Mail, Phone, CheckCircle, AlertCircle, X, Send, Clock, 
-  LogOut, RefreshCw, User, Package, CreditCard, Edit3, 
-  ShoppingCart, Search, ChevronRight, Menu
+  Mail, Phone, Shield, CheckCircle, AlertCircle, X, Send, Clock, 
+  LogOut, RefreshCw, User, Package, CreditCard, Heart, Settings,
+  Edit3, Home, Star, Bell, Gift, HelpCircle, ShoppingCart, Search,
+  ChevronRight, Menu
 } from "lucide-react";
 import api from "../api/api";
 
@@ -16,20 +17,6 @@ const UserDashboard = () => {
   const [timer, setTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    gender: "",
-    email: "",
-    emailOrMobile: ""
-  });
-  const [editField, setEditField] = useState(null); // Tracks which field is being verified (email or mobile)
-  const [newFieldValue, setNewFieldValue] = useState(""); // Stores new email or mobile value for verification
-  const [otpForEdit, setOtpForEdit] = useState(""); // OTP for verifying email/mobile change
-  const [showOtpInput, setShowOtpInput] = useState(false); // Shows OTP input for verification
-  const [otpTimer, setOtpTimer] = useState(120); // Timer for edit OTP
-  const [canResendEditOtp, setCanResendEditOtp] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -40,28 +27,6 @@ const UserDashboard = () => {
     }
     return () => clearInterval(interval);
   }, [isVerified, timer]);
-
-  useEffect(() => {
-    let interval;
-    if (showOtpInput && otpTimer > 0) {
-      interval = setInterval(() => {
-        setOtpTimer((prev) => (prev <= 1 ? (setCanResendEditOtp(true), 0) : prev - 1));
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [showOtpInput, otpTimer]);
-
-  useEffect(() => {
-    if (userData) {
-      setFormData({
-        firstName: userData.firstName || "",
-        lastName: userData.lastName || "",
-        gender: userData.gender || "",
-        email: userData.email || "",
-        emailOrMobile: userData.emailOrMobile || ""
-      });
-    }
-  }, [userData]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -131,144 +96,7 @@ const UserDashboard = () => {
     setEmailOrMobile("");
     setOtp("");
     setUserData(null);
-    setIsEditing(false);
-    setEditField(null);
-    setShowOtpInput(false);
     showPopup("success", "Logged out successfully");
-  };
-
-  const handleEditToggle = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditField(null);
-    setShowOtpInput(false);
-    setOtpForEdit("");
-    setNewFieldValue("");
-    setOtpTimer(120);
-    setCanResendEditOtp(false);
-    setFormData({
-      firstName: userData.firstName || "",
-      lastName: userData.lastName || "",
-      gender: userData.gender || "",
-      email: userData.email || "",
-      emailOrMobile: userData.emailOrMobile || ""
-    });
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSendEditOTP = async (field, value) => {
-    if (!value.trim()) {
-      showPopup("error", `${field === "email" ? "Email" : "Mobile number"} is required`);
-      return;
-    }
-    setLoading(true);
-    try {
-      const endpoint = field === "email" ? "/user/send-email-otp" : "/user/send-otp";
-      await api.post(endpoint, { emailOrMobile: value });
-      setEditField(field);
-      setNewFieldValue(value);
-      setShowOtpInput(true);
-      setOtpTimer(120);
-      setCanResendEditOtp(false);
-      showPopup("success", `OTP sent to ${value}`);
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || `Failed to send OTP to ${value}`);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyEditOTP = async () => {
-    if (!otpForEdit.trim()) {
-      showPopup("error", "OTP is required");
-      return;
-    }
-    setLoading(true);
-    try {
-      const endpoint = editField === "email" ? "/user/verify-email-otp" : "/user/verify-otp";
-      await api.post(endpoint, { emailOrMobile: newFieldValue, otp: otpForEdit });
-      setFormData((prev) => ({ ...prev, [editField]: newFieldValue }));
-      setShowOtpInput(false);
-      setEditField(null);
-      setOtpForEdit("");
-      setNewFieldValue("");
-      showPopup("success", `${editField === "email" ? "Email" : "Mobile number"} verified successfully`);
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "OTP verification failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendEditOTP = async () => {
-    setLoading(true);
-    try {
-      const endpoint = editField === "email" ? "/user/send-email-otp" : "/user/send-otp";
-
-      await api.post(endpoint, { emailOrMobile: newFieldValue });
-      showPopup("success", "OTP resent successfully");
-      setOtpTimer(120);
-      setCanResendEditOtp(false);
-      setOtpForEdit("");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to resend OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSaveChanges = async () => {
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      showPopup("error", "First name and last name are required");
-      return;
-    }
-    if (!formData.email.trim() && !formData.emailOrMobile.trim()) {
-      showPopup("error", "Either email or mobile number is required");
-      return;
-    }
-    setLoading(true);
-    try {
-      await api.post("/user/save-profile", {
-        emailOrMobile: userData.emailOrMobile,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        gender: formData.gender,
-        email: formData.email,
-      });
-      const res = await api.get(`/user/profile?emailOrMobile=${userData.emailOrMobile}`);
-      setUserData(res.data);
-      setIsEditing(false);
-      setEditField(null);
-      setShowOtpInput(false);
-      showPopup("success", "Profile updated successfully");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    if (!window.confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
-      return;
-    }
-    setLoading(true);
-    try {
-      await api.post("/user/delete-account", { emailOrMobile: userData.emailOrMobile });
-      handleLogout();
-      showPopup("success", "Account deleted successfully");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to delete account");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const sidebarItems = [
@@ -373,7 +201,7 @@ const UserDashboard = () => {
         <div className="bg-white w-64 h-full p-4 shadow-lg md:shadow-none" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center mb-6 pb-4 border-b">
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-              {userData?.firstName?.[0] || "U"}
+              G
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-600">Hello,</p>
@@ -429,27 +257,9 @@ const UserDashboard = () => {
     <div className="bg-white rounded-lg shadow-sm">
       <div className="flex items-center justify-between p-4 border-b">
         <h2 className="text-lg font-semibold">Personal Information</h2>
-        {!isEditing ? (
-          <button onClick={handleEditToggle} className="text-blue-600 hover:text-blue-800">
-            <Edit3 className="w-4 h-4" />
-          </button>
-        ) : (
-          <div className="space-x-2">
-            <button
-              onClick={handleSaveChanges}
-              disabled={loading || showOtpInput}
-              className="text-white bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded disabled:opacity-50"
-            >
-              {loading ? "Saving..." : "Save"}
-            </button>
-            <button
-              onClick={handleCancelEdit}
-              className="text-gray-600 hover:text-gray-800 px-3 py-1 rounded"
-            >
-              Cancel
-            </button>
-          </div>
-        )}
+        <button className="text-blue-600 hover:text-blue-800">
+          <Edit3 className="w-4 h-4" />
+        </button>
       </div>
       
       <div className="p-4">
@@ -457,23 +267,19 @@ const UserDashboard = () => {
           <div>
             <input
               type="text"
-              name="firstName"
-              value={formData.firstName}
-              onChange={handleInputChange}
-              className={`w-full p-2 border rounded ${isEditing ? "bg-white" : "bg-gray-50"}`}
+              value={userData.firstName}
+              className="w-full p-2 border rounded"
               placeholder="First Name"
-              readOnly={!isEditing}
+              readOnly
             />
           </div>
           <div>
             <input
               type="text"
-              name="lastName"
-              value={formData.lastName}
-              onChange={handleInputChange}
-              className={`w-full p-2 border rounded ${isEditing ? "bg-white" : "bg-gray-50"}`}
+              value={userData.lastName}
+              className="w-full p-2 border rounded"
               placeholder="Last Name"
-              readOnly={!isEditing}
+              readOnly
             />
           </div>
         </div>
@@ -486,10 +292,9 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Male"
-                checked={formData.gender === "Male"}
-                onChange={handleInputChange}
+                checked={userData.gender === "Male"}
                 className="mr-2"
-                disabled={!isEditing}
+                disabled
               />
               Male
             </label>
@@ -498,10 +303,9 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Female"
-                checked={formData.gender === "Female"}
-                onChange={handleInputChange}
+                checked={userData.gender === "Female"}
                 className="mr-2"
-                disabled={!isEditing}
+                disabled
               />
               Female
             </label>
@@ -511,93 +315,28 @@ const UserDashboard = () => {
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium">Email Address</label>
-            {isEditing && !showOtpInput && (
-              <button
-                onClick={() => handleSendEditOTP("email", formData.email)}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-                disabled={loading}
-              >
-                Verify
-              </button>
-            )}
+            <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
           </div>
           <input
             type="email"
-            name="email"
-            value={formData.email}
-            onChange={handleInputChange}
-            className={`w-full p-2 border rounded ${isEditing ? "bg-white" : "bg-gray-50"}`}
-            placeholder="Email Address"
-            readOnly={!isEditing || (editField === "email" && showOtpInput)}
+            value={userData.email}
+            className="w-full p-2 border rounded bg-gray-50"
+            readOnly
           />
         </div>
         
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium">Mobile Number</label>
-            {isEditing && !showOtpInput && (
-              <button
-                onClick={() => handleSendEditOTP("emailOrMobile", formData.emailOrMobile)}
-                className="text-blue-600 hover:text-blue-800 text-sm"
-                disabled={loading}
-              >
-                Verify
-              </button>
-            )}
+            <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
           </div>
           <input
             type="text"
-            name="emailOrMobile"
-            value={formData.emailOrMobile}
-            onChange={handleInputChange}
-            className={`w-full p-2 border rounded ${isEditing ? "bg-white" : "bg-gray-50"}`}
-            placeholder="Mobile Number"
-            readOnly={!isEditing || (editField === "emailOrMobile" && showOtpInput)}
+            value={`+91${userData.emailOrMobile}`}
+            className="w-full p-2 border rounded bg-gray-50"
+            readOnly
           />
         </div>
-        
-        {showOtpInput && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Enter OTP</label>
-            <input
-              type="text"
-              value={otpForEdit}
-              onChange={(e) => setOtpForEdit(e.target.value)}
-              className="w-full p-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Enter 6-digit OTP"
-              maxLength={6}
-            />
-            <div className="flex justify-between mt-2 text-sm text-gray-600">
-              <span>OTP sent to {newFieldValue}</span>
-              {otpTimer > 0 && <span>{formatTime(otpTimer)}</span>}
-            </div>
-            <div className="flex space-x-3 mt-2">
-              <button
-                onClick={handleVerifyEditOTP}
-                disabled={loading}
-                className="flex-1 bg-green-600 text-white p-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
-              >
-                {loading ? "Verifying..." : "Verify OTP"}
-              </button>
-              {canResendEditOtp && (
-                <button
-                  onClick={handleResendEditOTP}
-                  disabled={loading}
-                  className="flex-1 bg-orange-500 text-white p-2 rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center"
-                >
-                  {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  ) : (
-                    <>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Resend
-                    </>
-                  )}
-                </button>
-              )}
-            </div>
-          </div>
-        )}
         
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold mb-4">FAQs</h3>
@@ -636,12 +375,8 @@ const UserDashboard = () => {
             <button className="text-blue-600 hover:text-blue-800">
               Deactivate Account
             </button>
-            <button
-              onClick={handleDeleteAccount}
-              disabled={loading}
-              className="text-red-600 hover:text-red-800 disabled:opacity-50"
-            >
-              {loading ? "Deleting..." : "Delete Account"}
+            <button className="text-red-600 hover:text-red-800">
+              Delete Account
             </button>
           </div>
         </div>
@@ -651,8 +386,9 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <NavBar />
+      {/* <NavBar /> */}
       
+      {/* Popup */}
       {popup.show && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
           <div className="bg-white rounded-lg p-6 shadow-xl max-w-md mx-4">
@@ -695,7 +431,7 @@ const UserDashboard = () => {
               <button
                 onClick={handleSendOTP}
                 disabled={loading}
-                className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full bg-blue-600 text-white p-3 rounded-lg hover:bg-blue-700 disabled:opacity-50"
               >
                 {loading ? "Sending..." : "Send OTP"}
               </button>
@@ -720,7 +456,7 @@ const UserDashboard = () => {
                 <button
                   onClick={handleVerifyOTP}
                   disabled={loading}
-                  className="flex-1 bg-green-600 text-white p-3 rounded-lg hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 bg-green-600 text-white p-3 rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
                   {loading ? "Verifying..." : "Verify OTP"}
                 </button>
@@ -729,7 +465,7 @@ const UserDashboard = () => {
                   <button
                     onClick={handleResendOTP}
                     disabled={loading}
-                    className="flex-1 bg-orange-500 text-white p-3 rounded-lg hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center"
+                    className="flex-1 bg-orange-500 text-white p-3 rounded-lg hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center"
                   >
                     {loading ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
