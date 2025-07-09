@@ -1,26 +1,27 @@
 const User = require("../models/User");
-const nodemailer = require("nodemailer");
-const bcrypt = require("bcrypt");
 const axios = require("axios");
+const bcrypt = require("bcrypt");
+
 
 const sendOTP = async (req, res) => {
-  let { emailOrMobile } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
+  const { emailOrMobile } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
-  const expiry = new Date(Date.now() + 2 * 60000);
+  const expiry = new Date(Date.now() + 10 * 60000);
+  console.log("🔍 BREVO_EMAIL:", process.env.BREVO_EMAIL);
+  console.log(
+    "🔍 BREVO_KEY:",
+    process.env.BREVO_KEY ? "✅ Present" : "❌ Missing"
+  );
 
   try {
-    const user = await User.findOne({ emailOrMobile });
-    if (user) {
-      return res.status(400).json({ error: "Your profile already exists" });
-    }
-
-    const newUser = new User({ emailOrMobile, otp, otpExpires: expiry });
-    console.log("Saving user to MongoDB Atlas:", newUser);
-    await newUser.save();
-    console.log("User saved successfully:", newUser);
-
     const isEmail = emailOrMobile.includes("@");
+
+    let user = await User.findOne({ emailOrMobile });
+    if (!user) user = new User({ emailOrMobile });
+
+    user.otp = otp;
+    user.otpExpires = expiry;
+
     if (isEmail) {
       const transporter = nodemailer.createTransport({
         host: "smtp-relay.brevo.com",
@@ -33,218 +34,344 @@ const sendOTP = async (req, res) => {
       });
 
       const mailOptions = {
-        from: `"Shopymol OTP" <no-reply@shopymol.com>`,
+        from: `"Shopymol OTP" <no-reply@shopymol.com>`, // ✅ FINAL FIX
         to: emailOrMobile,
         subject: "Shopymol OTP Verification",
-        text: `Your OTP for registration is ${otp}. Valid for 2 minutes.`,
+        text: `Your OTP for Shopymol registration is ${otp}. It is valid for 10 minutes.`,
       };
 
-      await transporter.sendMail(mailOptions);
-      console.log("Email OTP sent to:", emailOrMobile);
+      const info = await transporter.sendMail(mailOptions);
+      console.log("✅ Email Sent:", info.response);
     } else {
-      const msg = `Your Shopymol OTP is ${otp}. Valid for 2 minutes.`;
-      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${emailOrMobile}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
+      const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
+      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${emailOrMobile}&senderid=SHPMOL&msg=${encodeURIComponent(
+        msg
+      )}`;
       await axios.get(url);
-      console.log("SMS OTP sent to:", emailOrMobile);
     }
 
+    await user.save();
     res.json({ success: true, message: "OTP sent successfully" });
   } catch (error) {
-    console.error("Error sending OTP:", error.message, error.stack);
-    if (error.code === 11000) {
-      return res.status(400).json({ error: "Email or mobile already exists" });
+    console.error("❌ Error sending OTP:", error.message);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "OTP send failed" });
     }
-    res.status(500).json({ error: "OTP send failed", details: error.message });
   }
 };
 
 const verifyOTP = async (req, res) => {
-  let { emailOrMobile, otp } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
-  try {
-    const user = await User.findOne({ emailOrMobile });
-    if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
-    }
+  const { emailOrMobile, otp } = req.body;
+  const user = await User.findOne({ emailOrMobile });
 
-    user.isVerified = true;
-    user.otp = null;
-    user.otpExpires = null;
-    console.log("Verifying OTP for user:", user);
-    await user.save();
-    console.log("OTP verified, user updated:", user);
-
-    res.json({ success: true, message: "OTP verified successfully" });
-  } catch (error) {
-    console.error("Error verifying OTP:", error.message, error.stack);
-    res.status(500).json({ error: "OTP verification failed", details: error.message });
+  if (!user || user.otp !== otp || user.otpExpires < Date.now()) {
+    return res.status(400).json({ error: "Invalid or expired OTP" });
   }
+
+  user.isVerified = true;
+  user.otp = null;
+  user.otpExpires = null;
+  await user.save();
+
+  res.json({ success: true, message: "OTP verified successfully" });
 };
 
 const registerUser = async (req, res) => {
-  let { emailOrMobile, password } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
-  try {
-    const user = await User.findOne({ emailOrMobile });
-    if (!user || !user.isVerified) {
-      return res.status(400).json({ error: "OTP not verified" });
-    }
+  const { emailOrMobile, password } = req.body;
+  const user = await User.findOne({ emailOrMobile });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    user.password = hashedPassword;
-    console.log("Registering user with password:", user);
-    await user.save();
-    console.log("User registered successfully:", user);
-
-    res.json({ success: true, message: "Password set successfully" });
-  } catch (error) {
-    console.error("Error registering user:", error.message, error.stack);
-    res.status(500).json({ error: "Registration failed", details: error.message });
+  if (!user || !user.isVerified) {
+    return res.status(400).json({ error: "OTP not verified" });
   }
+
+  const hashedPassword = await bcrypt.hash(password, 10);
+  user.password = hashedPassword;
+  await user.save();
+
+  res.json({ success: true, message: "User registered successfully" });
 };
 
+module.exports = { sendOTP, verifyOTP, registerUser };
 const saveProfileInfo = async (req, res) => {
-  let { emailOrMobile, firstName, lastName, gender, address } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
+  const { emailOrMobile, firstName, lastName, gender, address } = req.body;
+
   try {
+    const user = await User.findOne({ emailOrMobile });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.firstName = firstName;
+    user.lastName = lastName;
+    user.gender = gender;
+    user.address = address;
+
+    await user.save();
+
+    res.json({ success: true, message: "Profile info saved" });
+  } catch (err) {
+    res.status(500).json({ error: "Error saving profile" });
+  }
+};
+// This should be your Aadhaar send OTP function
+const sendAadhaarOTP = async (req, res) => {
+  const { emailOrMobile, aadhaarNumber } = req.body;
+
+  console.log("🔍 Aadhaar OTP Request:", { emailOrMobile, aadhaarNumber });
+
+  try {
+    // Validate input
+    if (!aadhaarNumber || aadhaarNumber.length !== 12) {
+      return res.status(400).json({ error: "Invalid Aadhaar number" });
+    }
+
+    // Check environment variables
+    if (
+      !process.env.CASHFREE_CLIENT_ID ||
+      !process.env.CASHFREE_CLIENT_SECRET
+    ) {
+      console.error("❌ Missing Cashfree credentials");
+      return res.status(500).json({ error: "Service configuration error" });
+    }
+
     const user = await User.findOne({ emailOrMobile });
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    user.firstName = firstName?.trim();
-    user.lastName = lastName?.trim();
-    user.gender = gender?.trim();
-    user.address = address?.trim();
-    user.isProfileComplete = true;
-    console.log("Saving profile to MongoDB Atlas:", user);
-    await user.save();
-    console.log("Profile saved successfully:", user);
+    console.log("✅ User found:", user.emailOrMobile);
 
-    res.json({ success: true, message: "Profile saved successfully" });
+    const response = await axios.post(
+      "https://sandbox.cashfree.com/kyc/v2/aadhaar/verify",
+      {
+        aadhaar_number: aadhaarNumber,
+        consent: "Y",
+        reason: "KYC for onboarding",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": process.env.CASHFREE_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+          "x-api-version": "1.0",
+        },
+      }
+    );
+
+    console.log("✅ Cashfree Response:", response.data);
+
+    const txnId = response.data.txn_id;
+
+    // Save Aadhaar info
+    user.aadhaarNumber = aadhaarNumber;
+    user.aadhaarTxnId = txnId;
+    await user.save();
+
+    res.json({
+      success: true,
+      txnId,
+      message: "Aadhaar OTP sent successfully",
+    });
   } catch (error) {
-    console.error("Error saving profile:", error.message, error.stack);
-    res.status(500).json({ error: "Error saving profile", details: error.message });
+    console.error(
+      "❌ Aadhaar OTP Error:",
+      error.response?.data || error.message
+    );
+
+    if (error.response?.status === 401) {
+      return res.status(500).json({ error: "Invalid API credentials" });
+    }
+
+    res.status(500).json({
+      error: "Aadhaar OTP request failed",
+      details: error.response?.data?.message || error.message,
+    });
   }
 };
 
-const sendEmailOTP = async (req, res) => {
-  let { emailOrMobile } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
-  const otp = Math.floor(100000 + Math.random() * 900000);
-  const expiry = new Date(Date.now() + 2 * 60000);
+// Keep your existing aadhaarKYC function for backward compatibility
+const aadhaarKYC = async (req, res) => {
+  // This is the same as sendAadhaarOTP - you can remove this if not needed
+  return sendAadhaarOTP(req, res);
+};
+
+const verifyAadhaarOTP = async (req, res) => {
+  const { emailOrMobile, otp } = req.body;
 
   try {
     const user = await User.findOne({ emailOrMobile });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
+    if (!user || !user.aadhaarTxnId) {
+      return res.status(404).json({ error: "Invalid request" });
     }
+
+    const verifyResponse = await axios.post(
+      "https://sandbox.cashfree.com/kyc/v2/aadhaar/verify/otp",
+      {
+        otp,
+        txn_id: user.aadhaarTxnId,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": process.env.CASHFREE_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+          "x-api-version": "1.0",
+        },
+      }
+    );
+
+    console.log("✅ Aadhaar OTP Verification Response:", verifyResponse.data);
+
+    user.aadhaarVerified = true;
+    user.aadhaarTxnId = null; // Clear transaction ID after verification
+    await user.save();
+
+    res.json({ success: true, message: "Aadhaar verified successfully" });
+  } catch (error) {
+    console.error(
+      "❌ Aadhaar OTP Verification Error:",
+      error.response?.data || error.message
+    );
+    res.status(400).json({
+      error: "Aadhaar OTP verification failed",
+      details: error.response?.data?.message || error.message,
+    });
+  }
+};
+
+const verifyPAN = async (req, res) => {
+  const { emailOrMobile, panNumber } = req.body;
+
+  try {
+    const user = await User.findOne({ emailOrMobile });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const response = await axios.post(
+      "https://sandbox.cashfree.com/kyc/v2/pan/verify",
+      {
+        pan: panNumber,
+        consent: "Y",
+        reason: "PAN verification for KYC",
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "x-client-id": process.env.CASHFREE_CLIENT_ID,
+          "x-client-secret": process.env.CASHFREE_CLIENT_SECRET,
+          "x-api-version": "1.0",
+        },
+      }
+    );
+
+    const { status } = response.data;
+
+    if (status !== "SUCCESS") {
+      return res.status(400).json({ error: "PAN not verified" });
+    }
+
+    user.panNumber = panNumber;
+    user.panVerified = true;
+    await user.save();
+
+    res.json({ success: true, message: "PAN verified successfully" });
+  } catch (error) {
+    console.error(
+      "❌ PAN Verification Error:",
+      error.response?.data || error.message
+    );
+    res.status(400).json({
+      error: "PAN verification failed",
+      details: error.response?.data?.message || error.message,
+    });
+  }
+};
+
+const nodemailer = require("nodemailer");
+
+// Send OTP via Email using Brevo SMTP
+const sendEmailOTP = async (req, res) => {
+  const { emailOrMobile } = req.body;
+
+  try {
+    const user = await User.findOne({ emailOrMobile });
+    if (!user) return res.status(404).json({ error: "User not found" });
+
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const expiry = new Date(Date.now() + 10 * 60000);
 
     user.resetOtp = otp;
     user.resetOtpExpires = expiry;
-    console.log("Saving reset OTP:", user);
     await user.save();
-    console.log("Reset OTP saved:", user);
 
-    const isEmail = emailOrMobile.includes("@");
-    if (isEmail) {
-      const transporter = nodemailer.createTransport({
-        host: "smtp-relay.brevo.com",
-        port: 587,
-        secure: false,
-        auth: {
-          user: process.env.BREVO_EMAIL,
-          pass: process.env.BREVO_KEY,
-        },
-      });
+    const transporter = nodemailer.createTransport({
+      host: "smtp-relay.brevo.com",
+      port: 587,
+      secure: false,
+      auth: {
+        user: process.env.BREVO_EMAIL,
+        pass: process.env.BREVO_KEY,
+      },
+    });
 
-      const mailOptions = {
-        from: `"Shopymol Reset" <no-reply@shopymol.com>`,
-        to: emailOrMobile,
-        subject: "Password Reset OTP",
-        text: `Your OTP for password reset is ${otp}. Valid for 2 minutes.`,
-      };
+    const mailOptions = {
+      from: `"ONE2ALL DEVLOPERS" <${process.env.BREVO_EMAIL}>`,
+      to: emailOrMobile,
+      subject: "Password Reset OTP - Shopymol",
+      text: `Your OTP for password reset is ${otp}. It is valid for 10 minutes.`,
+    };
 
-      await transporter.sendMail(mailOptions);
-      console.log("Reset email OTP sent to:", emailOrMobile);
-    } else {
-      const msg = `Your Shopymol password reset OTP is ${otp}. Valid for 2 minutes.`;
-      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${emailOrMobile}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
-      await axios.get(url);
-      console.log("Reset SMS OTP sent to:", emailOrMobile);
-    }
+    await transporter.sendMail(mailOptions);
 
-    res.json({ success: true, message: "Reset OTP sent successfully" });
-  } catch (error) {
-    console.error("Error sending reset OTP:", error.message, error.stack);
-    res.status(500).json({ error: "Failed to send reset OTP", details: error.message });
+    res.json({ success: true, message: "OTP sent to email" });
+  } catch (err) {
+    console.log(err.message);
+    res.status(500).json({ error: "Failed to send email OTP" });
   }
 };
-
 const verifyEmailOTP = async (req, res) => {
-  let { emailOrMobile, otp } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
-  try {
-    const user = await User.findOne({ emailOrMobile });
-    if (!user || user.resetOtp !== otp || user.resetOtpExpires < Date.now()) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
-    }
+  const { emailOrMobile, otp } = req.body;
 
-    res.json({ success: true, message: "Reset OTP verified" });
-  } catch (error) {
-    console.error("Error verifying reset OTP:", error.message, error.stack);
-    res.status(500).json({ error: "OTP verification failed", details: error.message });
+  const user = await User.findOne({ emailOrMobile });
+  if (!user || user.resetOtp !== otp || user.resetOtpExpires < Date.now()) {
+    return res.status(400).json({ error: "Invalid or expired OTP" });
   }
+
+  res.json({ success: true, message: "OTP verified" });
 };
 
 const resetPassword = async (req, res) => {
-  let { emailOrMobile, password } = req.body;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
-  try {
-    const user = await User.findOne({ emailOrMobile });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+  const { emailOrMobile, password } = req.body;
 
-    const hashed = await bcrypt.hash(password, 10);
-    user.password = hashed;
-    user.resetOtp = null;
-    user.resetOtpExpires = null;
-    console.log("Resetting password for user:", user);
-    await user.save();
-    console.log("Password reset successfully:", user);
+  const user = await User.findOne({ emailOrMobile });
+  if (!user) return res.status(404).json({ error: "User not found" });
 
-    res.json({ success: true, message: "Password reset successful" });
-  } catch (error) {
-    console.error("Error resetting password:", error.message, error.stack);
-    res.status(500).json({ error: "Password reset failed", details: error.message });
-  }
+  const hashed = await bcrypt.hash(password, 10);
+  user.password = hashed;
+  user.resetOtp = null;
+  user.resetOtpExpires = null;
+  await user.save();
+
+  res.json({ success: true, message: "Password reset successful" });
 };
-
 const getUserProfile = async (req, res) => {
-  let { emailOrMobile } = req.query;
-  emailOrMobile = emailOrMobile.includes("@") ? emailOrMobile.toLowerCase().trim() : emailOrMobile.trim();
+  const { emailOrMobile } = req.query;
+
   try {
     const user = await User.findOne({ emailOrMobile });
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    console.log("Fetching profile from MongoDB Atlas:", user);
     res.json({
-      success: true,
-      data: {
-        emailOrMobile: user.emailOrMobile,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        gender: user.gender,
-        address: user.address,
-        isProfileComplete: user.isProfileComplete,
-      },
+      emailOrMobile: user.emailOrMobile,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      gender: user.gender,
+      address: user.address,
+      aadhaarVerified: user.aadhaarVerified,
+      panVerified: user.panVerified,
     });
-  } catch (error) {
-    console.error("Error fetching profile:", error.message, error.stack);
-    res.status(500).json({ error: "Error fetching profile", details: error.message });
+  } catch {
+    res.status(500).json({ error: "Error fetching profile" });
   }
 };
 
@@ -252,7 +379,10 @@ module.exports = {
   sendOTP,
   verifyOTP,
   registerUser,
-  saveProfileInfo,
+  saveProfileInfo, // Add this to exports
+  aadhaarKYC,
+  verifyAadhaarOTP,
+  verifyPAN,
   sendEmailOTP,
   verifyEmailOTP,
   resetPassword,
