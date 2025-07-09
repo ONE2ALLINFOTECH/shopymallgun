@@ -50,7 +50,7 @@ const ForgetPassword = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post("/forgot/send-otp", { emailOrMobile });
+      const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
       showPopup("success", res.data.message);
       setOtpSent(true);
       setTimer(120);
@@ -69,7 +69,7 @@ const ForgetPassword = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post("/forgot/verify-otp", { emailOrMobile, otp });
+      const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp });
       showPopup("success", res.data.message);
       setOtpVerified(true);
     } catch (err) {
@@ -82,7 +82,7 @@ const ForgetPassword = () => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
-      const res = await api.post("/forgot/send-otp", { emailOrMobile });
+      const res = await api.post("/user/forgot/reset-password", { emailOrMobile });
       showPopup("success", "OTP resent successfully");
       setTimer(120);
       setCanResend(false);
@@ -105,7 +105,7 @@ const ForgetPassword = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post("/forgot/reset-password", { emailOrMobile, password });
+      const res = await api.post("/user/forgot/reset-password", { emailOrMobile, password });
       showPopup("success", res.data.message);
       setTimeout(() => {
         window.location.href = "/";
