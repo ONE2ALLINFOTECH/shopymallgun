@@ -48,7 +48,7 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
-      const res = await api.post("/send-otp", { emailOrMobile });
+      const res = await api.post("/user/send-otp", { emailOrMobile });
       showPopup("success", res.data.message);
       setTimer(120);
       setCanResend(false);
@@ -66,7 +66,7 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
-      await api.post("/verify-otp", { emailOrMobile, otp });
+      await api.post("/user/verify-otp", { emailOrMobile, otp });
       const res = await api.get(`/profile?emailOrMobile=${emailOrMobile}`);
       setUserData(res.data);
       setIsVerified(true);
@@ -81,7 +81,7 @@ const UserDashboard = () => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
-      const res = await api.post("/send-otp", { emailOrMobile });
+      const res = await api.post("/user/send-otp", { emailOrMobile });
       showPopup("success", "OTP resent successfully");
       setTimer(120);
       setCanResend(false);
