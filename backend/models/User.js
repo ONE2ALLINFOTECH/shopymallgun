@@ -6,16 +6,12 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   otp: { type: String },
   otpExpires: { type: Date },
-
-  // New Profile Fields
   firstName: { type: String },
   lastName: { type: String },
   gender: { type: String },
   address: { type: String },
-
-resetOtp: { type: String },
-resetOtpExpires: { type: Date },
-
+  resetOtp: { type: String },
+  resetOtpExpires: { type: Date },
 });
 
 module.exports = mongoose.model("User", userSchema);
