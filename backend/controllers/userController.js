@@ -5,18 +5,21 @@ const nodemailer = require("nodemailer");
 
 const sendOTP = async (req, res) => {
   const { emailOrMobile, isRegistration = false } = req.body;
-  const otp = Math.floor(100000 + Math.random() * 900000); // Example: 904780
+  const otp = Math.floor(100000 + Math.random() * 900000);
   const expiry = new Date(Date.now() + 10 * 60000);
 
   try {
     const isEmail = emailOrMobile.includes("@");
     let normalizedInput = emailOrMobile;
 
-    // Normalize mobile number (remove +91 and keep only 10 digits)
+    // Normalize mobile number
     if (!isEmail) {
-      normalizedInput = emailOrMobile.replace(/\D/g, ""); // Remove all non-digits
-      if (normalizedInput.length !== 10 || !/^[6-9]\d{9}$/.test(normalizedInput)) {
-        return res.status(400).json({ error: "Invalid mobile number format. Use 10 digits starting with 6-9" });
+      normalizedInput = emailOrMobile.replace(/\D/g, "");
+      if (normalizedInput.length === 10) {
+        normalizedInput = `91${normalizedInput}`;
+      }
+      if (!/^\+?91\d{10}$/.test(normalizedInput)) {
+        return res.status(400).json({ error: "Invalid mobile number format. Use +91XXXXXXXXXX or XXXXXXXXXX" });
       }
     }
 
@@ -60,24 +63,12 @@ const sendOTP = async (req, res) => {
       console.log(`Email OTP sent to ${emailOrMobile}`);
     } else {
       const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
-      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=otp&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
+      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
       try {
-        console.log('Sending OTP to URL:', url); // Debug log
         const response = await axios.get(url);
         console.log(`SMS API response for ${normalizedInput}:`, response.data);
-
-        // Check delivery status using shoot ID
-        const shootId = response.data.split('/')[1]; // e.g., one2allrecharge686e167c7a0ba
-        const deliveryUrl = `http://websms.textidea.com/app/smsapi/delivery.php?key=368214D9E23633&shootid=${shootId}`;
-        const deliveryResponse = await axios.get(deliveryUrl);
-        console.log(`Delivery status for ${shootId}:`, deliveryResponse.data);
       } catch (smsError) {
-        console.error(`SMS API error for ${normalizedInput}:`, {
-          message: smsError.message,
-          status: smsError.response?.status,
-          data: smsError.response?.data,
-          headers: smsError.response?.headers
-        });
+        console.error(`SMS API error for ${normalizedInput}:`, smsError.response?.data || smsError.message);
         return res.status(500).json({ error: "Failed to send SMS OTP" });
       }
     }
@@ -88,6 +79,7 @@ const sendOTP = async (req, res) => {
     res.status(500).json({ error: "OTP send failed" });
   }
 };
+
 const verifyOTP = async (req, res) => {
   const { emailOrMobile, otp } = req.body;
 
