@@ -303,85 +303,100 @@ const handleDeleteAccount = async () => {
           <Edit3 className="w-4 h-4" />
         </button>
       </div>
-      
-      <div className="p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-          <input
-  type="text"
-  value={editMode ? formData.firstName : userData.firstName}
-  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-  className="w-full p-2 border rounded"
-  placeholder="First Name"
-  readOnly={!editMode}
-/>
-          </div>
-          <div>
-          <input
-  type="text"
-  value={editMode ? formData.lastNameName : userData.lastName}
-  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-  className="w-full p-2 border rounded"
-  placeholder="Last Name"
-  readOnly={!editMode}
-/>
-          </div>
-        </div>
-        
-       <div className="mb-6">
-  <label className="block text-sm font-medium mb-2">Your Gender</label>
-  <div className="flex space-x-4">
-    <label className="flex items-center">
+    <div className="p-4">
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+    <div>
       <input
-        type="radio"
-        name="gender"
-        value="Male"
-        checked={formData.gender === "Male"}
-        onChange={handleChange}
-        className="mr-2"
-        disabled={!isEditing}
+        type="text"
+        name="firstName"
+        value={formData.firstName}
+        onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+        className={`w-full p-2 border rounded ${!editMode ? "bg-gray-100" : ""}`}
+        placeholder="First Name"
+        readOnly={!editMode}
       />
-      Male
-    </label>
-    <label className="flex items-center">
+    </div>
+    <div>
       <input
-        type="radio"
-        name="gender"
-        value="Female"
-        checked={formData.gender === "Female"}
-        onChange={handleChange}
-        className="mr-2"
-        disabled={!isEditing}
+        type="text"
+        name="lastName"
+        value={formData.lastName}
+        onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+        className={`w-full p-2 border rounded ${!editMode ? "bg-gray-100" : ""}`}
+        placeholder="Last Name"
+        readOnly={!editMode}
       />
-      Female
-    </label>
-    <label className="flex items-center">
-      <input
-        type="radio"
-        name="gender"
-        value="Other"
-        checked={formData.gender === "Other"}
-        onChange={handleChange}
-        className="mr-2"
-        disabled={!isEditing}
-      />
-      Other
-    </label>
+    </div>
   </div>
-</div>
 
-       <div className="mb-6">
-  <label className="block text-sm font-medium mb-2">Address</label>
-  <textarea
-    name="address"
-    value={formData.address}
-    onChange={handleChange}
-    rows={3}
-    readOnly={!isEditing}
-    className={`w-full p-2 border rounded ${!isEditing ? "bg-gray-100" : ""}`}
-    placeholder="Enter your address"
-  />
-</div>
+  <div className="mb-6">
+    <label className="block text-sm font-medium mb-2">Your Gender</label>
+    <div className="flex space-x-4">
+      {["Male", "Female", "Other"].map((g) => (
+        <label className="flex items-center" key={g}>
+          <input
+            type="radio"
+            name="gender"
+            value={g}
+            checked={formData.gender === g}
+            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+            className="mr-2"
+            disabled={!editMode}
+          />
+          {g}
+        </label>
+      ))}
+    </div>
+  </div>
+
+  <div className="mb-6">
+    <label className="block text-sm font-medium mb-2">Address</label>
+    <textarea
+      name="address"
+      value={formData.address}
+      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+      rows={3}
+      className={`w-full p-2 border rounded ${!editMode ? "bg-gray-100" : ""}`}
+      readOnly={!editMode}
+      placeholder="Your full address"
+    />
+  </div>
+
+  <div className="flex space-x-4 mt-6">
+    {editMode ? (
+      <>
+        <button
+          onClick={handleSaveProfile}
+          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+        >
+          Save Changes
+        </button>
+        <button
+          onClick={() => setEditMode(false)}
+          className="border px-4 py-2 rounded hover:bg-gray-100"
+        >
+          Cancel
+        </button>
+      </>
+    ) : (
+      <>
+        <button
+          onClick={() => setEditMode(true)}
+          className="text-blue-600 hover:text-blue-800"
+        >
+          Edit Profile
+        </button>
+        <button
+          onClick={handleDeleteAccount}
+          className="text-red-600 hover:text-red-800"
+        >
+          Delete Account
+        </button>
+      </>
+    )}
+  </div>
+
+
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium">Mobile Number</label>
