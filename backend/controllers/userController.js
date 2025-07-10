@@ -227,20 +227,6 @@ const verifyEmailOTP = async (req, res) => {
   res.json({ success: true, message: "OTP verified" });
 };
 
-const resetPassword = async (req, res) => {
-  const { emailOrMobile, password } = req.body;
-
-  const user = await User.findOne({ emailOrMobile });
-  if (!user) return res.status(404).json({ error: "User not found" });
-
-  const hashed = await bcrypt.hash(password, 10);
-  user.password = hashed;
-  user.resetOtp = null;
-  user.resetOtpExpires = null;
-  await user.save();
-
-  res.json({ success: true, message: "Password reset successful" });
-};
 
 const getUserProfile = async (req, res) => {
   const { emailOrMobile } = req.query;
@@ -307,6 +293,113 @@ const loginUser = async (req, res) => {
     res.status(500).json({ error: "Login failed" });
   }
 };
+const sendForgotPasswordOTP = async (req, res) => {
+  const { emailOrMobile } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+  try {
+    console.log("[Backend] Finding user for OTP:", normalizedInput);
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+    if (!user) {
+      console.log("[Backend] User not found for OTP:", normalizedInput);
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    user.otp = otp;
+    user.otpExpires = Date.now() + 10 * 60 * 1000; // 10 minutes
+    await user.save();
+    console.log("[Backend] OTP generated and saved for:", normalizedInput, "OTP:", otp);
+
+    if (emailOrMobile.includes("@")) {
+      await sendEmail(emailOrMobile, "Password Reset OTP", `Your OTP is ${otp}`);
+      console.log("[Backend] Email OTP sent to:", emailOrMobile);
+    } else {
+      await sendSMS(normalizedInput, `Your OTP for password reset is ${otp}`);
+      console.log("[Backend] SMS OTP sent to:", normalizedInput);
+    }
+
+    res.json({ success: true, message: "OTP sent successfully" });
+  } catch (err) {
+    console.error("[Backend] Send Forgot Password OTP Error:", err.message);
+    res.status(500).json({ error: "Failed to send OTP" });
+  }
+};
+
+const verifyForgotPasswordOTP = async (req, res) => {
+  const { emailOrMobile, otp } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+  try {
+    console.log("[Backend] Verifying OTP for:", normalizedInput, "OTP:", otp);
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+    if (!user) {
+      console.log("[Backend] User not found for OTP verification:", normalizedInput);
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (user.otp !== otp || user.otpExpires < Date.now()) {
+      console.log("[Backend] Invalid or expired OTP for:", normalizedInput);
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+    console.log("[Backend] OTP verified for:", normalizedInput);
+    res.json({ success: true, message: "OTP verified successfully" });
+  } catch (err) {
+    console.error("[Backend] Verify Forgot Password OTP Error:", err.message);
+    res.status(500).json({ error: "OTP verification failed" });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  const { emailOrMobile, password } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+  try {
+    console.log("[Backend] Resetting password for:", normalizedInput);
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+    if (!user) {
+      console.log("[Backend] User not found for password reset:", normalizedInput);
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (!user.otp || user.otpExpires < Date.now()) {
+      console.log("[Backend] OTP not verified or expired for:", normalizedInput);
+      return res.status(400).json({ error: "OTP not verified or expired" });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.otp = null;
+    user.otpExpires = null;
+    await user.save();
+    console.log("[Backend] Password reset successful for:", normalizedInput);
+    res.json({ success: true, message: "Password reset successfully" });
+  } catch (err) {
+    console.error("[Backend] Reset Password Error:", err.message);
+    res.status(500).json({ error: "Password reset failed" });
+  }
+};
 module.exports = {
   sendOTP,
   verifyOTP,
@@ -315,6 +408,9 @@ module.exports = {
   sendEmailOTP,
   verifyEmailOTP,
   resetPassword,
+  loginUser,
+  sendForgotPasswordOTP,
+  verifyForgotPasswordOTP,
   getUserProfile,
   loginUser,
 };
