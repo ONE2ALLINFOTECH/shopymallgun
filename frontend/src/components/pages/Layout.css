@@ -862,7 +862,7 @@ body {
     font-size: 18px;
   }
       .container {
-         margin: 0 0 0 270px !important; 
+         margin: 0rem !important; 
         padding: 1rem;
     }
   .stat-content h3 {
