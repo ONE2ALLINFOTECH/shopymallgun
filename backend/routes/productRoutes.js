@@ -1,6 +1,7 @@
+
+
 const express = require("express");
 const router = express.Router();
-
 const {
   createProduct,
   checkSKUExists,
@@ -8,7 +9,7 @@ const {
   updateProduct,
   deleteProduct,
   getProductCount,
-  getAllProducts, // ✅ ADD THIS
+  getAllProducts,
   getProductById
 } = require("../controllers/productController");
 
@@ -37,6 +38,5 @@ router.post("/sku-check", checkSKUExists);
 router.get("/sku/:sku", getProductBySKU);
 router.get("/total-count", getProductCount);
 router.get("/:id", getProductById); // 👈 Add this!
-
 
 module.exports = router;
