@@ -264,49 +264,49 @@ const UserDashboard = () => {
     },
   ];
 
-  // const NavBar = () => (
-  //   <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-  //     <div className="flex items-center justify-between p-3">
-  //       <div className="flex items-center space-x-4">
-  //         <button
-  //           onClick={() => setSidebarOpen(!sidebarOpen)}
-  //           className="md:hidden"
-  //         >
-  //           <Menu className="w-6 h-6" />
-  //         </button>
-  //         <div className="flex items-center space-x-2">
-  //           <div className="text-xl font-bold italic">Shopymol</div>
-  //           <div className="text-xs text-yellow-300">Explore Plus</div>
-  //         </div>
-  //       </div>
+  const NavBar = () => (
+    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+      <div className="flex items-center justify-between p-3">
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+          <div className="flex items-center space-x-2">
+            <div className="text-xl font-bold italic">Shopymol</div>
+            <div className="text-xs text-yellow-300">Explore Plus</div>
+          </div>
+        </div>
 
-  //       <div className="flex-1 max-w-lg mx-4 hidden md:block">
-  //         <div className="relative">
-  //           <input
-  //             type="text"
-  //             placeholder="Search for products, brands and more"
-  //             className="w-full p-2 pl-4 pr-10 text-black rounded-lg"
-  //           />
-  //           <Search className="absolute right-3 top-2.5 w-5 h-5 text-blue-600" />
-  //         </div>
-  //       </div>
+        <div className="flex-1 max-w-lg mx-4 hidden md:block">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search for products, brands and more"
+              className="w-full p-2 pl-4 pr-10 text-black rounded-lg"
+            />
+            <Search className="absolute right-3 top-2.5 w-5 h-5 text-blue-600" />
+          </div>
+        </div>
 
-  //       <div className="flex items-center space-x-4">
-  //         <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
-  //           <span className="hidden md:block">{userData?.firstName || "User"}</span>
-  //           <ChevronRight className="w-4 h-4" />
-  //         </button>
-  //         <button className="hidden md:block hover:bg-blue-700 p-2 rounded">
-  //           Become a Seller
-  //         </button>
-  //         <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
-  //           <ShoppingCart className="w-5 h-5" />
-  //           <span className="hidden md:block">Cart</span>
-  //         </button>
-  //       </div>
-  //     </div>
-  //   </div>
-  // );
+        <div className="flex items-center space-x-4">
+          <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
+            <span className="hidden md:block">{userData?.firstName || "User"}</span>
+            <ChevronRight className="w-4 h-4" />
+          </button>
+          <button className="hidden md:block hover:bg-blue-700 p-2 rounded">
+            Become a Seller
+          </button>
+          <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
+            <ShoppingCart className="w-5 h-5" />
+            <span className="hidden md:block">Cart</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const Sidebar = () => (
     <div className={`${sidebarOpen ? "block" : "hidden"} md:block fixed md:relative inset-0 md:inset-auto z-40 md:z-auto`}>
@@ -495,7 +495,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <NavBar />
+      {/* <NavBar /> */}
 
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
