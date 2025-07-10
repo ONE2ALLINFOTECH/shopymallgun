@@ -1,5 +1,8 @@
+// routes/brand.js
+
 const express = require("express");
 const router = express.Router();
+
 const {
   createBrand,
   getBrands,
@@ -7,10 +10,10 @@ const {
   deleteBrand
 } = require("../controllers/brandController");
 
-// CRUD Routes
-router.get("/", getBrands);
-router.post("/", createBrand);
-router.put("/:id", updateBrand);
-router.delete("/:id", deleteBrand);
+// 📦 Brand CRUD Routes
+router.get("/", getBrands);          // Get all brands
+router.post("/", createBrand);       // Create brand
+router.put("/:id", updateBrand);     // Update brand by ID
+router.delete("/:id", deleteBrand);  // Delete brand by ID
 
 module.exports = router;
