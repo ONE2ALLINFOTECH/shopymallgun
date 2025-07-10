@@ -299,27 +299,13 @@ const loginUser = async (req, res) => {
     console.error("[Backend] Login Error:", err.message);
     res.status(500).json({ error: "Login failed" });
   }
-};
-const sendSMS = async (mobile, msg) => {
-  const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${mobile}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
-
-  try {
-    const response = await axios.get(url);
-    console.log(`[SMS] Sent to ${mobile}:`, response.data);
-    return true;
-  } catch (error) {
-    console.error(`[SMS] Error sending to ${mobile}:`, error.response?.data || error.message);
-    throw new Error("Failed to send SMS");
-  }
-};
-
-
-// ✅ Step 2: Ab iska use karo yahan
-const sendForgotPasswordOTP = async (req, res) => {
+};const sendForgotPasswordOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
 
   let normalizedInput = emailOrMobile;
-  if (!emailOrMobile.includes("@")) {
+  const isEmail = emailOrMobile.includes("@");
+
+  if (!isEmail) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
     if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
   }
@@ -335,7 +321,7 @@ const sendForgotPasswordOTP = async (req, res) => {
     });
 
     if (!user) {
-      console.log("[Backend] User not found for OTP:", normalizedInput);
+      console.log("[Backend] User not found:", normalizedInput);
       return res.status(404).json({ error: "User not found" });
     }
 
@@ -346,7 +332,9 @@ const sendForgotPasswordOTP = async (req, res) => {
 
     console.log("[Backend] OTP generated:", otp);
 
-    if (emailOrMobile.includes("@")) {
+    const msg = `Your Shopymol password reset OTP is ${otp}. Valid for 10 minutes.`;
+
+    if (isEmail) {
       const transporter = nodemailer.createTransport({
         host: "smtp-relay.brevo.com",
         port: 587,
@@ -361,24 +349,31 @@ const sendForgotPasswordOTP = async (req, res) => {
         from: `"Shopymol" <${process.env.BREVO_EMAIL}>`,
         to: emailOrMobile,
         subject: "Password Reset OTP - Shopymol",
-        text: `Your OTP for password reset is ${otp}. It is valid for 10 minutes.`,
+        text: msg,
       };
 
       await transporter.sendMail(mailOptions);
-      console.log("[Backend] Email OTP sent to:", emailOrMobile);
-
+      console.log("[Email] OTP sent to:", emailOrMobile);
     } else {
-      await sendSMS(normalizedInput, `Your OTP for password reset is ${otp}`);
-      console.log("[Backend] SMS OTP sent to:", normalizedInput);
+      // ✅ SEND SMS USING AXIOS (Same style as your sendOTP)
+      const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
+
+      try {
+        const response = await axios.get(url);
+        console.log(`[SMS] Sent to ${normalizedInput}:`, response.data);
+      } catch (smsError) {
+        console.error(`[SMS ERROR] for ${normalizedInput}:`, smsError.response?.data || smsError.message);
+        return res.status(500).json({ error: "Failed to send SMS OTP" });
+      }
     }
 
-    res.json({ success: true, message: "OTP sent successfully" });
-
+    return res.json({ success: true, message: "OTP sent successfully" });
   } catch (err) {
-    console.error("[Backend] Send Forgot Password OTP Error:", err);
-    res.status(500).json({ error: err.message || "Failed to send OTP" });
+    console.error("[Backend] Forgot Password OTP Error:", err.message);
+    return res.status(500).json({ error: "Failed to send OTP" });
   }
 };
+
 const verifyForgotPasswordOTP = async (req, res) => {
   const { emailOrMobile, otp } = req.body;
 
