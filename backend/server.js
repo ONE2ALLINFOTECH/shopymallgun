@@ -1,5 +1,3 @@
-// backend/server.js
-
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -7,16 +5,27 @@ require("dotenv").config();
 
 const app = express();
 
-// ✅ CORS Configuration (allow your frontend)
+// ✅ Step 1: Allow your exact frontend domain (Vercel)
+const allowedOrigins = [
+  "https://shopymallgun.vercel.app",
+  "https://shopymallgun-mewka3g9v-one2allinfotechs-projects.vercel.app", // ✅ Add your deployed frontend
+];
+
 app.use(cors({
-  origin: "https://shopymallgun.vercel.app", // your frontend URL
-  credentials: true, // if using cookies or Authorization headers
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed from this origin: " + origin));
+    }
+  },
+  credentials: true,
 }));
 
-// ✅ Middlewares
+// ✅ Step 2: Body parser
 app.use(express.json());
 
-// ✅ MongoDB Connection
+// ✅ Step 3: MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -24,7 +33,7 @@ mongoose.connect(process.env.MONGO_URI, {
 .then(() => console.log("✅ MongoDB connected"))
 .catch((err) => console.error("❌ MongoDB connection error:", err));
 
-// ✅ Routes
+// ✅ Step 4: Routes
 app.use("/api/admin", require("./routes/adminRoutes"));
 app.use("/api/category", require("./routes/category"));
 app.use("/api/subcategory", require("./routes/subcategory"));
@@ -33,12 +42,12 @@ app.use("/api/brand", require("./routes/brand"));
 app.use("/api/products", require("./routes/productRoutes"));
 app.use("/api/user", require("./routes/userRoutes"));
 
-// ✅ Root route check
+// ✅ Step 5: Root Test Route
 app.get("/", (req, res) => {
-  res.send("🌐 ShopyMall Backend is Running");
+  res.send("🚀 ShopyMall Backend is Running");
 });
 
-// ✅ Start Server
+// ✅ Step 6: Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
