@@ -21,6 +21,6 @@ router.post("/forgot/send-otp", sendEmailOTP);
 router.post("/forgot/verify-otp", verifyEmailOTP);
 router.post("/forgot/reset-password", resetPassword);
 router.get("/profile", getUserProfile);
-
+router.post("/login", loginUser);
 module.exports = router;
 

@@ -275,7 +275,38 @@ const getUserProfile = async (req, res) => {
     res.status(500).json({ error: "Error fetching profile" });
   }
 };
-
+const loginUser = async (req, res) => {
+  const { emailOrMobile, password } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) {
+      normalizedInput = `91${normalizedInput}`;
+    }
+  }
+  try {
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    if (!user.password) {
+      return res.status(400).json({ error: "Password not set. Use OTP login or reset password." });
+    }
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid password" });
+    }
+    res.json({ success: true, message: "Login successful" });
+  } catch (err) {
+    console.error("[Login Error]:", err.message);
+    res.status(500).json({ error: "Login failed" });
+  }
+};
 module.exports = {
   sendOTP,
   verifyOTP,
@@ -285,4 +316,5 @@ module.exports = {
   verifyEmailOTP,
   resetPassword,
   getUserProfile,
+  loginUser,
 };
