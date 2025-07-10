@@ -264,40 +264,43 @@ const getUserProfile = async (req, res) => {
 const loginUser = async (req, res) => {
   const { emailOrMobile, password } = req.body;
   let normalizedInput = emailOrMobile;
+
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
     if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
   }
+
   try {
     console.log("[Backend] Login attempt for:", normalizedInput);
+
     const user = await User.findOne({
       $or: [
-        { email: normalizedInput }, // Check email field
-        { mobile: normalizedInput }, // Check mobile field
-        { email: normalizedInput.replace(/^91/, "") }, // Handle mobile without 91
-        { mobile: normalizedInput.replace(/^91/, "") }, // Handle mobile without 91
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
       ],
     });
+
     if (!user) {
       console.log("[Backend] User not found for:", normalizedInput);
       return res.status(404).json({ error: "User not found" });
     }
+
     if (!user.password) {
-      console.log("[Backend] Password not set for:", normalizedInput);
       return res.status(400).json({ error: "Password not set. Use OTP login or reset password." });
     }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      console.log("[Backend] Invalid password for:", normalizedInput);
       return res.status(400).json({ error: "Invalid password" });
     }
-    console.log("[Backend] Login successful for:", normalizedInput);
+
     res.json({ success: true, message: "Login successful" });
   } catch (err) {
     console.error("[Backend] Login Error:", err.message);
     res.status(500).json({ error: "Login failed" });
   }
 };
+
 const sendForgotPasswordOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
   let normalizedInput = emailOrMobile;
