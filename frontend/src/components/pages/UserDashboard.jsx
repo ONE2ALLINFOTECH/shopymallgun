@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
-  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff,Edit3
+  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
 import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -25,6 +25,7 @@ const UserDashboard = () => {
   const [timer, setTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showOtpPopup, setShowOtpPopup] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -39,8 +40,11 @@ const UserDashboard = () => {
         });
       }, 1000);
     }
+    if (otpSent && !otpVerified && otp.join("").length === 6) {
+      handleVerifyOTP();
+    }
     return () => clearInterval(interval);
-  }, [otpSent, otpVerified, timer]);
+  }, [otpSent, otpVerified, timer, otp]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -64,36 +68,48 @@ const UserDashboard = () => {
       console.log("[Send OTP] Requesting OTP for:", emailOrMobile);
       const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
       console.log("[Send OTP] Response:", res.data);
-      showPopup("success", res.data.message || "OTP sent successfully");
-      setOtpSent(true);
-      setTimer(120);
-      setCanResend(false);
+      if (res.data && res.data.error && res.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+        setOtpSent(false);
+      } else {
+        showPopup("success", res.data.message || "OTP sent successfully");
+        setOtpSent(true);
+        setTimer(120);
+        setCanResend(false);
+        setShowOtpPopup(true);
+      }
     } catch (err) {
       console.error("[Send OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+        setOtpSent(false);
+      } else {
+        showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOTP = async () => {
-    if (!otp.trim()) {
+    if (!otp.join("").trim()) {
       showPopup("error", "OTP is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify OTP] Verifying for:", emailOrMobile, "OTP:", otp);
-      await api.post("/user/verify-otp", { emailOrMobile, otp });
+      console.log("[Verify OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      await api.post("/user/verify-otp", { emailOrMobile, otp: otp.join("") });
       const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
       console.log("[Verify OTP] Profile Data:", res.data);
       setUserData(res.data);
       setOtpVerified(true);
       setIsLoggedIn(true);
+      setShowOtpPopup(false);
       showPopup("success", "OTP verified successfully");
     } catch (err) {
       console.error("[Verify OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP verification failed");
+      showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
     } finally {
       setLoading(false);
     }
@@ -131,7 +147,7 @@ const UserDashboard = () => {
       showPopup("success", "OTP resent successfully");
       setTimer(120);
       setCanResend(false);
-      setOtp("");
+      setOtp(["", "", "", "", "", ""]);
     } catch (err) {
       console.error("[Resend OTP] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Failed to resend OTP");
@@ -150,27 +166,38 @@ const UserDashboard = () => {
       console.log("[Forgot Password OTP] Sending OTP to:", emailOrMobile);
       const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
       console.log("[Forgot Password OTP] Response:", res.data);
-      showPopup("success", res.data.message || "OTP sent successfully");
-      setOtpSent(true);
-      setTimer(120);
-      setCanResend(false);
+      if (res.data && res.data.error && res.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+        setOtpSent(false);
+      } else {
+        showPopup("success", res.data.message || "OTP sent successfully");
+        setOtpSent(true);
+        setTimer(120);
+        setCanResend(false);
+        setShowOtpPopup(true);
+      }
     } catch (err) {
       console.error("[Forgot Password OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+        setOtpSent(false);
+      } else {
+        showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyForgotPasswordOTP = async () => {
-    if (!otp.trim()) {
+    if (!otp.join("").trim()) {
       showPopup("error", "OTP is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify Forgot Password OTP] Verifying for:", emailOrMobile, "OTP:", otp);
-      const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp });
+      console.log("[Verify Forgot Password OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp: otp.join("") });
       console.log("[Verify Forgot Password OTP] Response:", res.data);
       showPopup("success", res.data.message || "OTP verified successfully");
       setOtpVerified(true);
@@ -216,7 +243,7 @@ const UserDashboard = () => {
     console.log("[Logout] Logging out user:", userData?.emailOrMobile);
     setIsLoggedIn(false);
     setEmailOrMobile("");
-    setOtp("");
+    setOtp(["", "", "", "", "", ""]);
     setPassword("");
     setNewPassword("");
     setConfirmPassword("");
@@ -227,6 +254,15 @@ const UserDashboard = () => {
     setTimer(120);
     setCanResend(false);
     showPopup("success", "Logged out successfully");
+  };
+
+  const handleOtpChange = (index, value) => {
+    const newOtp = [...otp];
+    newOtp[index] = value.slice(-1); // Only take the last character
+    setOtp(newOtp);
+    if (value && index < 5) {
+      document.getElementById(`otp-input-${index + 1}`).focus();
+    }
   };
 
   const sidebarItems = [
@@ -495,7 +531,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      {/* <NavBar /> */}
+      <NavBar />
 
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
@@ -515,6 +551,47 @@ const UserDashboard = () => {
             <div className={`w-full h-1 rounded-full ${popup.type === "success" ? "bg-green-200" : "bg-red-200"}`}>
               <div className={`h-full rounded-full animate-pulse ${popup.type === "success" ? "bg-green-500" : "bg-red-500"}`} style={{ width: "100%" }}></div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showOtpPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-80">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-semibold text-blue-700">Login</h2>
+              <button onClick={() => setShowOtpPopup(false)} className="text-blue-500 hover:text-blue-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              Enter OTP Sent to one2xxxxxxxxxx@gmail.xxx and 730xxxxxx43
+            </p>
+            <div className="flex justify-center space-x-2 mb-2">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`otp-input-${index}`}
+                  type="text"
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  maxLength={1}
+                  className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
+                />
+              ))}
+            </div>
+            {timer > 0 && (
+              <p className="text-xs text-blue-500 mb-2 text-center">Resend OTP in {formatTime(timer)}</p>
+            )}
+            {canResend && (
+              <button
+                onClick={handleResendOTP}
+                disabled={loading}
+                className="w-full text-xs text-orange-500 hover:text-orange-700 mt-2"
+              >
+                Resend OTP
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -570,63 +647,7 @@ const UserDashboard = () => {
                     </button>
                   ) : !otpVerified ? (
                     <div className="space-y-3 sm:space-y-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Enter OTP</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                          </div>
-                          <input
-                            type="text"
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value)}
-                            className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                            placeholder="Enter 6-digit OTP"
-                            maxLength={6}
-                          />
-                        </div>
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 space-y-1 sm:space-y-0">
-                          <p className="text-xs sm:text-sm text-gray-500 break-all">OTP sent to {emailOrMobile}</p>
-                          {timer > 0 && (
-                            <div className="flex items-center space-x-1 text-xs sm:text-sm text-blue-600">
-                              <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                              <span>{formatTime(timer)}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                        <button
-                          onClick={handleVerifyForgotPasswordOTP}
-                          disabled={loading}
-                          className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
-                        >
-                          {loading ? (
-                            <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                              <span>Verify OTP</span>
-                            </>
-                          )}
-                        </button>
-                        {canResend && (
-                          <button
-                            onClick={handleResendOTP}
-                            disabled={loading}
-                            className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
-                          >
-                            {loading ? (
-                              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
-                            ) : (
-                              <>
-                                <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span>Resend</span>
-                              </>
-                            )}
-                          </button>
-                        )}
-                      </div>
+                      {/* OTP popup handled separately above */}
                     </div>
                   ) : (
                     <div className="space-y-4 sm:space-y-6">
@@ -756,64 +777,8 @@ const UserDashboard = () => {
                           )}
                         </button>
                       ) : (
-                        <div className="space-y-3 sm:space-y-4">
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-700 mb-2">Enter OTP</label>
-                            <div className="relative">
-                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                              </div>
-                              <input
-                                type="text"
-                                value={otp}
-                                onChange={(e) => setOtp(e.target.value)}
-                                className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                                placeholder="Enter 6-digit OTP"
-                                maxLength={6}
-                              />
-                            </div>
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 space-y-1 sm:space-y-0">
-                              <p className="text-xs sm:text-sm text-gray-500 break-all">OTP sent to {emailOrMobile}</p>
-                              {timer > 0 && (
-                                <div className="flex items-center space-x-1 text-xs sm:text-sm text-blue-600">
-                                  <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                                  <span>{formatTime(timer)}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                            <button
-                              onClick={handleVerifyOTP}
-                              disabled={loading}
-                              className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
-                            >
-                              {loading ? (
-                                <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                              ) : (
-                                <>
-                                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                                  <span>Verify OTP</span>
-                                </>
-                              )}
-                            </button>
-                            {canResend && (
-                              <button
-                                onClick={handleResendOTP}
-                                disabled={loading}
-                                className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
-                              >
-                                {loading ? (
-                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
-                                ) : (
-                                  <>
-                                    <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                                    <span>Resend</span>
-                                  </>
-                                )}
-                              </button>
-                            )}
-                          </div>
+                        <div>
+                          {/* OTP popup handled separately above */}
                         </div>
                       )}
                     </>
