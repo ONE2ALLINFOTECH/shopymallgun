@@ -27,9 +27,6 @@ const UserDashboard = () => {
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // State for edit mode
-  const [tempUserData, setTempUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "" }); // Temp state for editing
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // State for delete confirmation
 
   useEffect(() => {
     let interval;
@@ -112,12 +109,6 @@ const UserDashboard = () => {
         gender: res.data.gender || "",
         emailOrMobile: res.data.emailOrMobile || emailOrMobile
       });
-      setTempUserData({
-        firstName: res.data.firstName || "",
-        lastName: res.data.lastName || "",
-        gender: res.data.gender || "",
-        emailOrMobile: res.data.emailOrMobile || emailOrMobile
-      });
       setOtpVerified(true);
       setIsLoggedIn(true);
       setShowOtpPopup(false);
@@ -143,12 +134,6 @@ const UserDashboard = () => {
       const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
       console.log("[Password Login] Profile Data:", profileRes.data);
       setUserData({
-        firstName: profileRes.data.firstName || "",
-        lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
-        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
-      });
-      setTempUserData({
         firstName: profileRes.data.firstName || "",
         lastName: profileRes.data.lastName || "",
         gender: profileRes.data.gender || "",
@@ -276,7 +261,6 @@ const UserDashboard = () => {
     setOtpSent(false);
     setOtpVerified(false);
     setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
-    setTempUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
     setShowForgotPassword(false);
     setTimer(120);
     setCanResend(false);
@@ -289,56 +273,6 @@ const UserDashboard = () => {
     setOtp(newOtp);
     if (value && index < 5) {
       document.getElementById(`otp-input-${index + 1}`).focus();
-    }
-  };
-
-  const handleEditToggle = () => {
-    if (!isEditing) {
-      setTempUserData({ ...userData }); // Copy current user data to temp for editing
-    }
-    setIsEditing(!isEditing);
-  };
-
-  const handleSaveProfile = async () => {
-    if (!tempUserData.firstName.trim() || !tempUserData.lastName.trim()) {
-      showPopup("error", "First name and last name are required");
-      return;
-    }
-    setLoading(true);
-    try {
-      console.log("[Save Profile] Saving profile for:", userData.emailOrMobile);
-      const res = await api.post("/user/save-profile", {
-        emailOrMobile: userData.emailOrMobile,
-        firstName: tempUserData.firstName,
-        lastName: tempUserData.lastName,
-        gender: tempUserData.gender
-      });
-      console.log("[Save Profile] Response:", res.data);
-      setUserData({ ...tempUserData }); // Update userData with new values
-      setIsEditing(false);
-      showPopup("success", "Your data updated successfully");
-    } catch (err) {
-      console.error("[Save Profile] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to update profile");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    setLoading(true);
-    try {
-      console.log("[Delete Account] Deleting account for:", userData.emailOrMobile);
-      const res = await api.delete("/user/delete-account", { data: { emailOrMobile: userData.emailOrMobile } });
-      console.log("[Delete Account] Response:", res.data);
-      handleLogout(); // Log out user after deletion
-      showPopup("success", "Account deleted successfully");
-    } catch (err) {
-      console.error("[Delete Account] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to delete account");
-    } finally {
-      setLoading(false);
-      setShowDeleteConfirm(false);
     }
   };
 
@@ -483,8 +417,8 @@ const UserDashboard = () => {
     <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold text-gray-800">Personal Information</h1>
-        <button onClick={handleEditToggle} className="text-blue-600 hover:text-blue-800">
-          {isEditing ? "Cancel" : <Edit3 className="w-4 h-4" />}
+        <button className="text-blue-600 hover:text-blue-800">
+          <Edit3 className="w-4 h-4" />
         </button>
       </div>
 
@@ -493,21 +427,19 @@ const UserDashboard = () => {
           <div>
             <input
               type="text"
-              value={isEditing ? tempUserData.firstName : userData.firstName}
-              onChange={(e) => isEditing && setTempUserData({ ...tempUserData, firstName: e.target.value })}
-              className={`w-full p-2 border-2 rounded-lg ${isEditing ? "border-blue-500" : "border-gray-200 bg-gray-50"}`}
+              value={userData?.firstName || ""}
+              className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="First Name"
-              readOnly={!isEditing}
+              readOnly
             />
           </div>
           <div>
             <input
               type="text"
-              value={isEditing ? tempUserData.lastName : userData.lastName}
-              onChange={(e) => isEditing && setTempUserData({ ...tempUserData, lastName: e.target.value })}
-              className={`w-full p-2 border-2 rounded-lg ${isEditing ? "border-blue-500" : "border-gray-200 bg-gray-50"}`}
+              value={userData?.lastName || ""}
+              className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="Last Name"
-              readOnly={!isEditing}
+              readOnly
             />
           </div>
         </div>
@@ -520,10 +452,9 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Male"
-                checked={isEditing ? tempUserData.gender === "Male" : userData.gender === "Male"}
-                onChange={() => isEditing && setTempUserData({ ...tempUserData, gender: "Male" })}
+                checked={userData?.gender === "Male"}
                 className="mr-2"
-                disabled={!isEditing}
+                disabled
               />
               Male
             </label>
@@ -532,10 +463,9 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Female"
-                checked={isEditing ? tempUserData.gender === "Female" : userData.gender === "Female"}
-                onChange={() => isEditing && setTempUserData({ ...tempUserData, gender: "Female" })}
+                checked={userData?.gender === "Female"}
                 className="mr-2"
-                disabled={!isEditing}
+                disabled
               />
               Female
             </label>
@@ -549,7 +479,7 @@ const UserDashboard = () => {
           </div>
           <input
             type="email"
-            value={userData.emailOrMobile.includes("@") ? userData.emailOrMobile : ""}
+            value={userData?.emailOrMobile.includes("@") ? userData.emailOrMobile : ""}
             className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
             readOnly
           />
@@ -562,30 +492,11 @@ const UserDashboard = () => {
           </div>
           <input
             type="text"
-            value={!userData.emailOrMobile.includes("@") ? `+91${userData.emailOrMobile.replace(/^91/, "")}` : ""}
+            value={!userData?.emailOrMobile.includes("@") ? `+91${userData.emailOrMobile.replace(/^91/, "")}` : ""}
             className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
             readOnly
           />
         </div>
-
-        {isEditing && (
-          <div className="flex space-x-4">
-            <button
-              onClick={handleSaveProfile}
-              disabled={loading}
-              className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Save Changes</span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
 
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">FAQs</h3>
@@ -622,49 +533,16 @@ const UserDashboard = () => {
         <div className="border-t pt-4">
           <div className="flex space-x-4">
             <button className="text-blue-600 hover:text-blue-800">Deactivate Account</button>
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="text-red-600 hover:text-red-800"
-            >
-              Delete Account
-            </button>
+            <button className="text-red-600 hover:text-red-800">Delete Account</button>
           </div>
         </div>
       </div>
-
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-6 w-80">
-            <h2 className="text-lg font-semibold text-red-700">Confirm Deletion</h2>
-            <p className="text-sm text-gray-600 mt-2">Are you sure you want to delete your account? This action cannot be undone.</p>
-            <div className="flex space-x-4 mt-4">
-              <button
-                onClick={handleDeleteAccount}
-                disabled={loading}
-                className="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition-all disabled:opacity-50"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mx-auto"></div>
-                ) : (
-                  "Delete"
-                )}
-              </button>
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                className="flex-1 bg-gray-500 text-white py-2 rounded-lg font-semibold hover:bg-gray-600 transition-all"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <NavBar />
+     
 
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
