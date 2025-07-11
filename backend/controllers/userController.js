@@ -12,25 +12,22 @@ const sendOTP = async (req, res) => {
     const isEmail = emailOrMobile.includes("@");
     let normalizedInput = emailOrMobile;
 
-    // Normalize mobile number
     if (!isEmail) {
       normalizedInput = emailOrMobile.replace(/\D/g, "");
       if (normalizedInput.length === 10) {
         normalizedInput = `91${normalizedInput}`;
       }
       if (!/^\+?91\d{10}$/.test(normalizedInput)) {
-        return res.status(400).json({ error: "Invalid mobile number format. Use +91XXXXXXXXXX or XXXXXXXXXX" });
+        return res.status(400).json({ error: "Mobile number galat hai bhai, +91XXXXXXXXXX ya XXXXXXXXXX daal!" });
       }
     }
 
     let user = await User.findOne({ emailOrMobile: normalizedInput });
 
-    // For registration, check if user exists
     if (isRegistration && user) {
-      return res.status(400).json({ error: "Email or mobile already exists" });
+      return res.status(400).json({ error: "Yeh email ya mobile pehle se registered hai!" });
     }
 
-    // Create new user if none exists
     if (!user) {
       user = new User({ emailOrMobile: normalizedInput });
     }
@@ -39,7 +36,7 @@ const sendOTP = async (req, res) => {
     user.otpExpires = expiry;
     await user.save();
 
-    console.log(`Generated OTP: ${otp} for ${normalizedInput}`);
+    console.log(`[Backend] OTP banaya: ${otp} for ${normalizedInput}`);
 
     if (isEmail) {
       const transporter = nodemailer.createTransport({
@@ -56,27 +53,27 @@ const sendOTP = async (req, res) => {
         from: `"Shopymol OTP" <no-reply@shopymol.com>`,
         to: emailOrMobile,
         subject: "Shopymol OTP Verification",
-        text: `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`,
+        text: `Tera Shopymol login OTP hai ${otp}. Kisi se share mat kar!`,
       };
 
       await transporter.sendMail(mailOptions);
-      console.log(`Email OTP sent to ${emailOrMobile}`);
+      console.log(`[Email] OTP bheja to ${emailOrMobile}`);
     } else {
-      const msg = `Your Shopymol login OTP is ${otp}. Do not share it with anyone.`;
+      const msg = `Tera Shopymol login OTP hai ${otp}. Kisi se share mat kar!`;
       const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
       try {
         const response = await axios.get(url);
-        console.log(`SMS API response for ${normalizedInput}:`, response.data);
+        console.log(`[SMS] Bheja to ${normalizedInput}:`, response.data);
       } catch (smsError) {
-        console.error(`SMS API error for ${normalizedInput}:`, smsError.response?.data || smsError.message);
-        return res.status(500).json({ error: "Failed to send SMS OTP" });
+        console.error(`[SMS Error] for ${normalizedInput}:`, smsError.response?.data || smsError.message);
+        return res.status(500).json({ error: "SMS OTP bhejne mein gadbad!" });
       }
     }
 
-    res.json({ success: true, message: "OTP sent successfully" });
+    res.json({ success: true, message: "OTP bhej diya!" });
   } catch (error) {
-    console.error("❌ Error sending OTP:", error.message);
-    res.status(500).json({ error: "OTP send failed" });
+    console.error("[Backend] OTP bhejne mein error:", error.message);
+    res.status(500).json({ error: "OTP bhejne mein gadbad!" });
   }
 };
 
@@ -84,7 +81,7 @@ const verifyOTP = async (req, res) => {
   const { emailOrMobile, otp } = req.body;
 
   if (!emailOrMobile || !otp) {
-    return res.status(400).json({ error: "Email/mobile and OTP are required" });
+    return res.status(400).json({ error: "Email/mobile aur OTP dono chahiye!" });
   }
 
   let normalizedInput = emailOrMobile;
@@ -95,7 +92,6 @@ const verifyOTP = async (req, res) => {
     }
   }
 
-  // Check both formats to handle database inconsistencies
   const user = await User.findOne({
     $or: [
       { emailOrMobile: normalizedInput },
@@ -104,11 +100,11 @@ const verifyOTP = async (req, res) => {
   });
 
   if (!user) {
-    return res.status(404).json({ error: "User not found" });
+    return res.status(404).json({ error: "User nahi mila!" });
   }
 
   if (user.otp !== otp || user.otpExpires < Date.now()) {
-    return res.status(400).json({ error: "Invalid or expired OTP" });
+    return res.status(400).json({ error: "OTP galat hai ya expire ho gaya!" });
   }
 
   user.isVerified = true;
@@ -116,7 +112,7 @@ const verifyOTP = async (req, res) => {
   user.otpExpires = null;
   await user.save();
 
-  res.json({ success: true, message: "OTP verified successfully" });
+  res.json({ success: true, message: "OTP verify ho gaya!" });
 };
 
 const registerUser = async (req, res) => {
@@ -132,18 +128,32 @@ const registerUser = async (req, res) => {
   const user = await User.findOne({ emailOrMobile: normalizedInput });
 
   if (!user || !user.isVerified) {
-    return res.status(400).json({ error: "OTP not verified" });
+    return res.status(400).json({ error: "Pehle OTP verify kar bhai!" });
   }
 
   const hashedPassword = await bcrypt.hash(password, 10);
   user.password = hashedPassword;
   await user.save();
 
-  res.json({ success: true, message: "User registered successfully" });
+  res.json({ success: true, message: "User register ho gaya!" });
 };
 
 const saveProfileInfo = async (req, res) => {
   const { emailOrMobile, firstName, lastName, gender } = req.body;
+
+  if (!emailOrMobile) {
+    return res.status(400).json({ error: "Email ya mobile number daal bhai!" });
+  }
+  if (!firstName || !firstName.trim()) {
+    return res.status(400).json({ error: "First name daal, zaruri hai!" });
+  }
+  if (!lastName || !lastName.trim()) {
+    return res.status(400).json({ error: "Last name daal, zaruri hai!" });
+  }
+  if (gender && !["Male", "Female"].includes(gender)) {
+    return res.status(400).json({ error: "Gender ya toh Male ya Female daal, ya khali chhod!" });
+  }
+
   let normalizedInput = emailOrMobile;
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
@@ -161,19 +171,20 @@ const saveProfileInfo = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User nahi mila!" });
     }
 
-    user.firstName = firstName || user.firstName;
-    user.lastName = lastName || user.lastName;
-    user.gender = gender || user.gender;
-
+    user.firstName = firstName.trim();
+    user.lastName = lastName.trim();
+    user.gender = gender || "";
     await user.save();
 
-    res.json({ success: true, message: "Profile info saved successfully" });
+    console.log(`[Backend] Profile update kiya for ${normalizedInput}:`, { firstName, lastName, gender });
+
+    res.json({ success: true, message: "Profile update ho gaya!", data: { firstName, lastName, gender } });
   } catch (err) {
-    console.error("❌ Error saving profile:", err.message);
-    res.status(500).json({ error: "Error saving profile" });
+    console.error("[Backend] Profile save mein error:", err.message);
+    res.status(500).json({ error: "Profile save nahi hua!" });
   }
 };
 
@@ -182,7 +193,7 @@ const sendEmailOTP = async (req, res) => {
 
   try {
     const user = await User.findOne({ emailOrMobile });
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.status(404).json({ error: "User nahi mila!" });
 
     const otp = Math.floor(100000 + Math.random() * 900000);
     const expiry = new Date(Date.now() + 10 * 60000);
@@ -191,7 +202,7 @@ const sendEmailOTP = async (req, res) => {
     user.resetOtpExpires = expiry;
     await user.save();
 
-    console.log(`Generated Reset OTP: ${otp} for ${emailOrMobile}`);
+    console.log(`[Backend] Reset OTP banaya: ${otp} for ${emailOrMobile}`);
 
     const transporter = nodemailer.createTransport({
       host: "smtp-relay.brevo.com",
@@ -207,16 +218,16 @@ const sendEmailOTP = async (req, res) => {
       from: `"Shopymol" <${process.env.BREVO_EMAIL}>`,
       to: emailOrMobile,
       subject: "Password Reset OTP - Shopymol",
-      text: `Your OTP for password reset is ${otp}. It is valid for 10 minutes.`,
+      text: `Tera OTP password reset ke liye hai ${otp}. 10 minute tak valid hai.`,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Reset Email OTP sent to ${emailOrMobile}`);
+    console.log(`[Email] Reset OTP bheja to ${emailOrMobile}`);
 
-    res.json({ success: true, message: "OTP sent to email" });
+    res.json({ success: true, message: "OTP email pe bhej diya!" });
   } catch (err) {
-    console.error("❌ Error sending reset OTP:", err.message);
-    res.status(500).json({ error: "Failed to send email OTP" });
+    console.error("[Backend] Reset OTP bhejne mein error:", err.message);
+    res.status(500).json({ error: "Email OTP bhejne mein gadbad!" });
   }
 };
 
@@ -225,10 +236,10 @@ const verifyEmailOTP = async (req, res) => {
 
   const user = await User.findOne({ emailOrMobile });
   if (!user || user.resetOtp !== otp || user.resetOtpExpires < Date.now()) {
-    return res.status(400).json({ error: "Invalid or expired OTP" });
+    return res.status(400).json({ error: "OTP galat hai ya expire ho gaya!" });
   }
 
-  res.json({ success: true, message: "OTP verified" });
+  res.json({ success: true, message: "OTP verify ho gaya!" });
 };
 
 const getUserProfile = async (req, res) => {
@@ -249,18 +260,26 @@ const getUserProfile = async (req, res) => {
       ],
     });
 
-    if (!user) return res.status(404).json({ error: "User not found" });
+    if (!user) return res.status(404).json({ error: "User nahi mila!" });
 
-    res.json({
+    console.log(`[Backend] Profile fetch kiya for ${normalizedInput}:`, {
       emailOrMobile: user.emailOrMobile,
       firstName: user.firstName,
       lastName: user.lastName,
       gender: user.gender,
       isVerified: user.isVerified,
     });
+
+    res.json({
+      emailOrMobile: user.emailOrMobile,
+      firstName: user.firstName || "",
+      lastName: user.lastName || "",
+      gender: user.gender || "",
+      isVerified: user.isVerified,
+    });
   } catch (err) {
-    console.error("❌ Error fetching profile:", err.message);
-    res.status(500).json({ error: "Error fetching profile" });
+    console.error("[Backend] Profile fetch mein error:", err.message);
+    res.status(500).json({ error: "Profile fetch nahi hua!" });
   }
 };
 
@@ -284,23 +303,23 @@ const loginUser = async (req, res) => {
     });
 
     if (!user) {
-      console.log("[Backend] User not found for:", normalizedInput);
-      return res.status(404).json({ error: "User not found" });
+      console.log("[Backend] User nahi mila for:", normalizedInput);
+      return res.status(404).json({ error: "User nahi mila!" });
     }
 
     if (!user.password) {
-      return res.status(400).json({ error: "Password not set. Use OTP login or reset password." });
+      return res.status(400).json({ error: "Password set nahi hai. OTP se login kar ya password reset kar!" });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ error: "Invalid password" });
+      return res.status(400).json({ error: "Password galat hai!" });
     }
 
-    res.json({ success: true, message: "Login successful" });
+    res.json({ success: true, message: "Login ho gaya!" });
   } catch (err) {
     console.error("[Backend] Login Error:", err.message);
-    res.status(500).json({ error: "Login failed" });
+    res.status(500).json({ error: "Login nahi hua!" });
   }
 };
 
@@ -316,7 +335,7 @@ const sendForgotPasswordOTP = async (req, res) => {
   }
 
   try {
-    console.log("[Backend] Finding user for OTP:", normalizedInput);
+    console.log("[Backend] OTP bhej raha hu for forgot password:", normalizedInput);
 
     const user = await User.findOne({
       $or: [
@@ -326,8 +345,8 @@ const sendForgotPasswordOTP = async (req, res) => {
     });
 
     if (!user) {
-      console.log("[Backend] User not found:", normalizedInput);
-      return res.status(404).json({ error: "User not found" });
+      console.log("[Backend] User nahi mila:", normalizedInput);
+      return res.status(404).json({ error: "User nahi mila!" });
     }
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -335,9 +354,9 @@ const sendForgotPasswordOTP = async (req, res) => {
     user.otpExpires = Date.now() + 10 * 60 * 1000;
     await user.save();
 
-    console.log("[Backend] OTP generated:", otp);
+    console.log("[Backend] OTP banaya:", otp);
 
-    const msg = `Your Shopymol password reset OTP is ${otp}. Valid for 10 minutes.`;
+    const msg = `Tera Shopymol password reset OTP hai ${otp}. 10 minute tak valid hai.`;
 
     if (isEmail) {
       const transporter = nodemailer.createTransport({
@@ -358,23 +377,23 @@ const sendForgotPasswordOTP = async (req, res) => {
       };
 
       await transporter.sendMail(mailOptions);
-      console.log("[Email] OTP sent to:", emailOrMobile);
+      console.log("[Email] OTP bheja to:", emailOrMobile);
     } else {
       const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
 
       try {
         const response = await axios.get(url);
-        console.log(`[SMS] Sent to ${normalizedInput}:`, response.data);
+        console.log(`[SMS] Bheja to ${normalizedInput}:`, response.data);
       } catch (smsError) {
         console.error(`[SMS ERROR] for ${normalizedInput}:`, smsError.response?.data || smsError.message);
-        return res.status(500).json({ error: "Failed to send SMS OTP" });
+        return res.status(500).json({ error: "SMS OTP bhejne mein gadbad!" });
       }
     }
 
-    return res.json({ success: true, message: "OTP sent successfully" });
+    return res.json({ success: true, message: "OTP bhej diya!" });
   } catch (err) {
     console.error("[Backend] Forgot Password OTP Error:", err.message);
-    return res.status(500).json({ error: "Failed to send OTP" });
+    return res.status(500).json({ error: "OTP bhejne mein gadbad!" });
   }
 };
 
@@ -388,7 +407,7 @@ const verifyForgotPasswordOTP = async (req, res) => {
   }
 
   try {
-    console.log("[Backend] Verifying OTP for:", normalizedInput);
+    console.log("[Backend] OTP verify kar raha hu for:", normalizedInput);
 
     const user = await User.findOne({
       $or: [
@@ -398,23 +417,23 @@ const verifyForgotPasswordOTP = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User nahi mila!" });
     }
 
     if (user.otp !== otp || user.otpExpires < Date.now()) {
-      return res.status(400).json({ error: "Invalid or expired OTP" });
+      return res.status(400).json({ error: "OTP galat hai ya expire ho gaya!" });
     }
 
     user.otp = null;
     user.otpExpires = null;
     await user.save();
 
-    console.log("[Backend] OTP verified and cleared");
-    res.json({ success: true, message: "OTP verified successfully" });
+    console.log("[Backend] OTP verify kiya aur clear kiya");
+    res.json({ success: true, message: "OTP verify ho gaya!" });
 
   } catch (err) {
     console.error("[Backend] Verify Forgot Password OTP Error:", err.message);
-    res.status(500).json({ error: "OTP verification failed" });
+    res.status(500).json({ error: "OTP verify nahi hua!" });
   }
 };
 
@@ -428,7 +447,7 @@ const resetPassword = async (req, res) => {
   }
 
   try {
-    console.log("[Backend] Resetting password for:", normalizedInput);
+    console.log("[Backend] Password reset kar raha hu for:", normalizedInput);
 
     const user = await User.findOne({
       $or: [
@@ -438,18 +457,18 @@ const resetPassword = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User nahi mila!" });
     }
 
     user.password = await bcrypt.hash(password, 10);
     await user.save();
 
-    console.log("[Backend] Password reset successful");
-    res.json({ success: true, message: "Password reset successfully" });
+    console.log("[Backend] Password reset ho gaya");
+    res.json({ success: true, message: "Password reset ho gaya!" });
 
   } catch (err) {
     console.error("[Backend] Reset Password Error:", err.message);
-    res.status(500).json({ error: "Password reset failed" });
+    res.status(500).json({ error: "Password reset nahi hua!" });
   }
 };
 
@@ -463,7 +482,7 @@ const deleteAccount = async (req, res) => {
   }
 
   try {
-    console.log("[Backend] Deleting account for:", normalizedInput);
+    console.log("[Backend] Account delete kar raha hu for:", normalizedInput);
 
     const user = await User.findOneAndDelete({
       $or: [
@@ -473,14 +492,14 @@ const deleteAccount = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({ error: "User not found" });
+      return res.status(404).json({ error: "User nahi mila!" });
     }
 
-    console.log("[Backend] Account deleted successfully");
-    res.json({ success: true, message: "Account deleted successfully" });
+    console.log("[Backend] Account delete ho gaya");
+    res.json({ success: true, message: "Account delete ho gaya!" });
   } catch (err) {
     console.error("[Backend] Delete Account Error:", err.message);
-    res.status(500).json({ error: "Failed to delete account" });
+    res.status(500).json({ error: "Account delete nahi hua!" });
   }
 };
 

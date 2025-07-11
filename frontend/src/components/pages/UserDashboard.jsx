@@ -3,8 +3,8 @@ import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
   ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
-import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
-import { Link } from "react-router-dom"; // Import Link from react-router-dom
+import api from "../api/api";
+import { Link } from "react-router-dom";
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
@@ -27,9 +27,9 @@ const UserDashboard = () => {
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // State for edit mode
-  const [tempUserData, setTempUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "" }); // Temp state for editing
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false); // State for delete confirmation
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempUserData, setTempUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -64,32 +64,28 @@ const UserDashboard = () => {
 
   const handleSendOTP = async () => {
     if (!emailOrMobile.trim()) {
-      showPopup("error", "Email or mobile number is required");
+      showPopup("error", "Email ya mobile number daal bhai!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Send OTP] Requesting OTP for:", emailOrMobile);
+      console.log("[Send OTP] OTP bhej raha hu:", emailOrMobile);
       const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
-      console.log("[Send OTP] Response:", res.data);
-      if (res.data && res.data.error && res.data.error.includes("not registered")) {
-        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+      console.log("[Send OTP] Response mila:", res.data);
+      if (res.data.error && res.data.error.includes("not registered")) {
+        showPopup("error", "Bhai, yeh email ya number registered nahi hai, pehle register kar!");
         setOtpSent(false);
       } else {
-        showPopup("success", res.data.message || "OTP sent successfully");
+        showPopup("success", res.data.message || "OTP bhej diya!");
         setOtpSent(true);
         setTimer(120);
         setCanResend(false);
         setShowOtpPopup(true);
       }
     } catch (err) {
-      console.error("[Send OTP] Error:", err.response?.data || err.message);
-      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
-        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
-        setOtpSent(false);
-      } else {
-        showPopup("error", err.response?.data?.error || "Failed to send OTP");
-      }
+      console.error("[Send OTP] Error aaya:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "OTP bhejne mein gadbad!");
+      setOtpSent(false);
     } finally {
       setLoading(false);
     }
@@ -97,34 +93,30 @@ const UserDashboard = () => {
 
   const handleVerifyOTP = async () => {
     if (!otp.join("").trim()) {
-      showPopup("error", "OTP is required");
+      showPopup("error", "OTP toh daal bhai!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      console.log("[Verify OTP] Verify kar raha hu:", emailOrMobile, "OTP:", otp.join(""));
       await api.post("/user/verify-otp", { emailOrMobile, otp: otp.join("") });
       const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
-      console.log("[Verify OTP] Profile Data:", res.data);
-      setUserData({
+      console.log("[Verify OTP] Profile Data mila:", res.data);
+      const newUserData = {
         firstName: res.data.firstName || "",
         lastName: res.data.lastName || "",
-        gender: res.data.gender || "",
+        gender: res.data.gender || "", // Ensure gender is set
         emailOrMobile: res.data.emailOrMobile || emailOrMobile
-      });
-      setTempUserData({
-        firstName: res.data.firstName || "",
-        lastName: res.data.lastName || "",
-        gender: res.data.gender || "",
-        emailOrMobile: res.data.emailOrMobile || emailOrMobile
-      });
+      };
+      setUserData(newUserData);
+      setTempUserData(newUserData);
       setOtpVerified(true);
       setIsLoggedIn(true);
       setShowOtpPopup(false);
-      showPopup("success", "OTP verified successfully");
+      showPopup("success", "OTP verify ho gaya!");
     } catch (err) {
       console.error("[Verify OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
+      showPopup("error", err.response?.data?.error || "Sahi OTP daal bhai!");
     } finally {
       setLoading(false);
     }
@@ -132,33 +124,29 @@ const UserDashboard = () => {
 
   const handlePasswordLogin = async () => {
     if (!emailOrMobile.trim() || !password.trim()) {
-      showPopup("error", "Email/mobile and password are required");
+      showPopup("error", "Email/mobile aur password dono daal!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Password Login] Attempting login for:", emailOrMobile);
+      console.log("[Password Login] Login try kar raha hu:", emailOrMobile);
       const res = await api.post("/user/login", { emailOrMobile, password });
-      console.log("[Password Login] Response:", res.data);
+      console.log("[Password Login] Response mila:", res.data);
       const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
-      console.log("[Password Login] Profile Data:", profileRes.data);
-      setUserData({
+      console.log("[Password Login] Profile Data mila:", profileRes.data);
+      const newUserData = {
         firstName: profileRes.data.firstName || "",
         lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
+        gender: profileRes.data.gender || "", // Ensure gender is set
         emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
-      });
-      setTempUserData({
-        firstName: profileRes.data.firstName || "",
-        lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
-        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
-      });
+      };
+      setUserData(newUserData);
+      setTempUserData(newUserData);
       setIsLoggedIn(true);
-      showPopup("success", res.data.message || "Login successful");
+      showPopup("success", res.data.message || "Login ho gaya bhai!");
     } catch (err) {
       console.error("[Password Login] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Login failed");
+      showPopup("error", err.response?.data?.error || "Login nahi hua, kuch galat hai!");
     } finally {
       setLoading(false);
     }
@@ -167,16 +155,16 @@ const UserDashboard = () => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
-      console.log("[Resend OTP] Resending OTP to:", emailOrMobile);
+      console.log("[Resend OTP] OTP dobara bhej raha hu:", emailOrMobile);
       const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
       console.log("[Resend OTP] Response:", res.data);
-      showPopup("success", "OTP resent successfully");
+      showPopup("success", "OTP dobara bhej diya!");
       setTimer(120);
       setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
     } catch (err) {
       console.error("[Resend OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to resend OTP");
+      showPopup("error", err.response?.data?.error || "OTP dobara bhejne mein gadbad!");
     } finally {
       setLoading(false);
     }
@@ -184,19 +172,19 @@ const UserDashboard = () => {
 
   const handleForgotPasswordOTP = async () => {
     if (!emailOrMobile.trim()) {
-      showPopup("error", "Email or mobile number is required");
+      showPopup("error", "Email ya mobile number daal!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Forgot Password OTP] Sending OTP to:", emailOrMobile);
+      console.log("[Forgot Password OTP] OTP bhej raha hu:", emailOrMobile);
       const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
       console.log("[Forgot Password OTP] Response:", res.data);
-      if (res.data && res.data.error && res.data.error.includes("not registered")) {
-        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+      if (res.data.error && res.data.error.includes("not registered")) {
+        showPopup("error", "Yeh email ya number registered nahi hai!");
         setOtpSent(false);
       } else {
-        showPopup("success", res.data.message || "OTP sent successfully");
+        showPopup("success", res.data.message || "OTP bhej diya!");
         setOtpSent(true);
         setTimer(120);
         setCanResend(false);
@@ -204,12 +192,7 @@ const UserDashboard = () => {
       }
     } catch (err) {
       console.error("[Forgot Password OTP] Error:", err.response?.data || err.message);
-      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
-        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
-        setOtpSent(false);
-      } else {
-        showPopup("error", err.response?.data?.error || "Failed to send OTP");
-      }
+      showPopup("error", err.response?.data?.error || "OTP bhejne mein gadbad!");
     } finally {
       setLoading(false);
     }
@@ -217,19 +200,19 @@ const UserDashboard = () => {
 
   const handleVerifyForgotPasswordOTP = async () => {
     if (!otp.join("").trim()) {
-      showPopup("error", "OTP is required");
+      showPopup("error", "OTP daal bhai!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify Forgot Password OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      console.log("[Verify Forgot Password OTP] Verify kar raha hu:", emailOrMobile, "OTP:", otp.join(""));
       const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp: otp.join("") });
       console.log("[Verify Forgot Password OTP] Response:", res.data);
-      showPopup("success", res.data.message || "OTP verified successfully");
+      showPopup("success", res.data.message || "OTP verify ho gaya!");
       setOtpVerified(true);
     } catch (err) {
       console.error("[Verify Forgot Password OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP verification failed");
+      showPopup("error", err.response?.data?.error || "Sahi OTP daal!");
     } finally {
       setLoading(false);
     }
@@ -237,19 +220,19 @@ const UserDashboard = () => {
 
   const handleResetPassword = async () => {
     if (!newPassword.trim() || !confirmPassword.trim()) {
-      showPopup("error", "Both password fields are required");
+      showPopup("error", "Dono password fields bhar!");
       return;
     }
     if (newPassword !== confirmPassword) {
-      showPopup("error", "Passwords do not match");
+      showPopup("error", "Password match nahi kar raha!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Reset Password] Resetting password for:", emailOrMobile);
+      console.log("[Reset Password] Password reset kar raha hu:", emailOrMobile);
       const res = await api.post("/user/forgot/reset-password", { emailOrMobile, password: newPassword });
       console.log("[Reset Password] Response:", res.data);
-      showPopup("success", res.data.message || "Password reset successfully");
+      showPopup("success", res.data.message || "Password reset ho gaya!");
       setTimeout(() => {
         setShowForgotPassword(false);
         setNewPassword("");
@@ -259,14 +242,14 @@ const UserDashboard = () => {
       }, 1500);
     } catch (err) {
       console.error("[Reset Password] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Password reset failed");
+      showPopup("error", err.response?.data?.error || "Password reset nahi hua!");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
-    console.log("[Logout] Logging out user:", userData?.emailOrMobile);
+    console.log("[Logout] User ko logout kar raha hu:", userData?.emailOrMobile);
     setIsLoggedIn(false);
     setEmailOrMobile("");
     setOtp(["", "", "", "", "", ""]);
@@ -280,12 +263,12 @@ const UserDashboard = () => {
     setShowForgotPassword(false);
     setTimer(120);
     setCanResend(false);
-    showPopup("success", "Logged out successfully");
+    showPopup("success", "Logout ho gaya!");
   };
 
   const handleOtpChange = (index, value) => {
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1); // Only take the last character
+    newOtp[index] = value.slice(-1);
     setOtp(newOtp);
     if (value && index < 5) {
       document.getElementById(`otp-input-${index + 1}`).focus();
@@ -294,32 +277,36 @@ const UserDashboard = () => {
 
   const handleEditToggle = () => {
     if (!isEditing) {
-      setTempUserData({ ...userData }); // Copy current user data to temp for editing
+      setTempUserData({ ...userData });
     }
     setIsEditing(!isEditing);
   };
 
   const handleSaveProfile = async () => {
     if (!tempUserData.firstName.trim() || !tempUserData.lastName.trim()) {
-      showPopup("error", "First name and last name are required");
+      showPopup("error", "First name aur last name daal bhai!");
+      return;
+    }
+    if (tempUserData.gender && !["Male", "Female"].includes(tempUserData.gender)) {
+      showPopup("error", "Gender sahi daal, Male ya Female!");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Save Profile] Saving profile for:", userData.emailOrMobile);
+      console.log("[Save Profile] Profile save kar raha hu:", userData.emailOrMobile, "Data:", tempUserData);
       const res = await api.post("/user/save-profile", {
         emailOrMobile: userData.emailOrMobile,
         firstName: tempUserData.firstName,
         lastName: tempUserData.lastName,
-        gender: tempUserData.gender
+        gender: tempUserData.gender || ""
       });
       console.log("[Save Profile] Response:", res.data);
-      setUserData({ ...tempUserData }); // Update userData with new values
+      setUserData({ ...tempUserData });
       setIsEditing(false);
-      showPopup("success", "Your data updated successfully");
+      showPopup("success", "Profile update ho gaya!");
     } catch (err) {
       console.error("[Save Profile] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to update profile");
+      showPopup("error", err.response?.data?.error || "Profile update nahi hua!");
     } finally {
       setLoading(false);
     }
@@ -328,14 +315,14 @@ const UserDashboard = () => {
   const handleDeleteAccount = async () => {
     setLoading(true);
     try {
-      console.log("[Delete Account] Deleting account for:", userData.emailOrMobile);
+      console.log("[Delete Account] Account delete kar raha hu:", userData.emailOrMobile);
       const res = await api.delete("/user/delete-account", { data: { emailOrMobile: userData.emailOrMobile } });
       console.log("[Delete Account] Response:", res.data);
-      handleLogout(); // Log out user after deletion
-      showPopup("success", "Account deleted successfully");
+      handleLogout();
+      showPopup("success", "Account delete ho gaya!");
     } catch (err) {
       console.error("[Delete Account] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to delete account");
+      showPopup("error", err.response?.data?.error || "Account delete nahi hua!");
     } finally {
       setLoading(false);
       setShowDeleteConfirm(false);
@@ -493,7 +480,7 @@ const UserDashboard = () => {
           <div>
             <input
               type="text"
-              value={isEditing ? tempUserData.firstName : userData.firstName}
+              value={isEditing ? tempUserData.firstName : userData.firstName || ""}
               onChange={(e) => isEditing && setTempUserData({ ...tempUserData, firstName: e.target.value })}
               className={`w-full p-2 border-2 rounded-lg ${isEditing ? "border-blue-500" : "border-gray-200 bg-gray-50"}`}
               placeholder="First Name"
@@ -503,7 +490,7 @@ const UserDashboard = () => {
           <div>
             <input
               type="text"
-              value={isEditing ? tempUserData.lastName : userData.lastName}
+              value={isEditing ? tempUserData.lastName : userData.lastName || ""}
               onChange={(e) => isEditing && setTempUserData({ ...tempUserData, lastName: e.target.value })}
               className={`w-full p-2 border-2 rounded-lg ${isEditing ? "border-blue-500" : "border-gray-200 bg-gray-50"}`}
               placeholder="Last Name"
@@ -520,7 +507,7 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Male"
-                checked={isEditing ? tempUserData.gender === "Male" : userData.gender === "Male"}
+                checked={(isEditing ? tempUserData.gender : userData.gender) === "Male"}
                 onChange={() => isEditing && setTempUserData({ ...tempUserData, gender: "Male" })}
                 className="mr-2"
                 disabled={!isEditing}
@@ -532,7 +519,7 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Female"
-                checked={isEditing ? tempUserData.gender === "Female" : userData.gender === "Female"}
+                checked={(isEditing ? tempUserData.gender : userData.gender) === "Female"}
                 onChange={() => isEditing && setTempUserData({ ...tempUserData, gender: "Female" })}
                 className="mr-2"
                 disabled={!isEditing}
@@ -540,6 +527,9 @@ const UserDashboard = () => {
               Female
             </label>
           </div>
+          {(isEditing ? tempUserData.gender : userData.gender) === "" && (
+            <p className="text-sm text-gray-500 mt-1">Gender select kar bhai (optional hai)</p>
+          )}
         </div>
 
         <div>
@@ -591,29 +581,27 @@ const UserDashboard = () => {
           <h3 className="text-lg font-semibold text-gray-800 mb-4">FAQs</h3>
           <div className="space-y-4">
             <div>
-              <p className="font-medium mb-2">What happens when I update my email address (or mobile number)?</p>
+              <p className="font-medium mb-2">Email ya mobile number update karne se kya hota hai?</p>
               <p className="text-sm text-gray-600">
-                Your login email id (or mobile number) changes, likewise. You'll receive all your account related 
-                communication on your updated email address (or mobile number).
+                Tera login email ya number change ho jayega. Sab account related communication naye email ya number pe jayegi.
               </p>
             </div>
             <div>
-              <p className="font-medium mb-2">When will my Shopymol account be updated with the new email address (or mobile number)?</p>
+              <p className="font-medium mb-2">Shopymol account kab update hoga naye email ya number se?</p>
               <p className="text-sm text-gray-600">
-                It happens as soon as you confirm the verification code sent to your email (or mobile) and save the changes.
+                Jaise hi tu verification code confirm karega aur changes save karega, update ho jayega.
               </p>
             </div>
             <div>
-              <p className="font-medium mb-2">What happens to my existing Shopymol account when I update my email address (or mobile number)?</p>
+              <p className="font-medium mb-2">Purana account ka kya hoga jab email ya number update karunga?</p>
               <p className="text-sm text-gray-600">
-                Updating your email address (or mobile number) doesn't invalidate your account. Your account remains fully 
-                functional. You'll continue seeing your Order history, saved information and personal details.
+                Account waisa hi rahega, bas email ya number change hoga. Order history, saved info sab safe rahega.
               </p>
             </div>
             <div>
-              <p className="font-medium mb-2">Does my Seller account get affected when I update my email address?</p>
+              <p className="font-medium mb-2">Seller account pe kya asar hoga email update karne se?</p>
               <p className="text-sm text-gray-600">
-                Shopymol has a 'single sign-on' policy. Any changes will reflect in your Seller account also.
+                Shopymol mein single sign-on hai, toh seller account bhi update ho jayega.
               </p>
             </div>
           </div>
@@ -636,7 +624,7 @@ const UserDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-6 w-80">
             <h2 className="text-lg font-semibold text-red-700">Confirm Deletion</h2>
-            <p className="text-sm text-gray-600 mt-2">Are you sure you want to delete your account? This action cannot be undone.</p>
+            <p className="text-sm text-gray-600 mt-2">Sacchi mein account delete karna hai? Wapas nahi hoga!</p>
             <div className="flex space-x-4 mt-4">
               <button
                 onClick={handleDeleteAccount}
@@ -698,7 +686,7 @@ const UserDashboard = () => {
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-2">
-              Enter OTP Sent to {emailOrMobile}
+              OTP daal jo {emailOrMobile} pe bheja gaya
             </p>
             <div className="flex justify-center space-x-2 mb-2">
               {otp.map((digit, index) => (
@@ -722,7 +710,7 @@ const UserDashboard = () => {
                 disabled={loading}
                 className="w-full text-xs text-orange-500 hover:text-orange-700 mt-2"
               >
-                Resend OTP
+                OTP Dobara Bhej
               </button>
             )}
           </div>
@@ -737,10 +725,10 @@ const UserDashboard = () => {
                 <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {showForgotPassword ? "Reset Password" : "Login to Shopymol"}
+                {showForgotPassword ? "Password Reset Kar" : "Shopymol Mein Login Kar"}
               </h1>
               <p className="text-gray-600 mt-2 text-sm sm:text-base px-2">
-                {showForgotPassword ? "Create a new password" : "Choose your preferred login method"}
+                {showForgotPassword ? "Naya password bana" : "Apna login method choose kar"}
               </p>
             </div>
 
@@ -748,7 +736,7 @@ const UserDashboard = () => {
               {showForgotPassword ? (
                 <div className="space-y-4 sm:space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email ya Mobile Number</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -758,7 +746,7 @@ const UserDashboard = () => {
                         value={emailOrMobile}
                         onChange={(e) => setEmailOrMobile(e.target.value)}
                         className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                        placeholder="Enter email or mobile number"
+                        placeholder="Email ya mobile number daal"
                       />
                     </div>
                   </div>
@@ -774,7 +762,7 @@ const UserDashboard = () => {
                       ) : (
                         <>
                           <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                          <span>Send OTP</span>
+                          <span>OTP Bhej</span>
                         </>
                       )}
                     </button>
@@ -785,7 +773,7 @@ const UserDashboard = () => {
                   ) : (
                     <div className="space-y-4 sm:space-y-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Naya Password</label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -795,7 +783,7 @@ const UserDashboard = () => {
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                            placeholder="Enter new password"
+                            placeholder="Naya password daal"
                           />
                           <button
                             type="button"
@@ -818,7 +806,7 @@ const UserDashboard = () => {
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                            placeholder="Confirm new password"
+                            placeholder="Password dobara daal"
                           />
                           <button
                             type="button"
@@ -841,7 +829,7 @@ const UserDashboard = () => {
                           ) : (
                             <>
                               <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                              <span>Reset Password</span>
+                              <span>Password Reset Kar</span>
                             </>
                           )}
                         </button>
@@ -849,7 +837,7 @@ const UserDashboard = () => {
                           onClick={() => setShowForgotPassword(false)}
                           className="px-4 py-2.5 sm:py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105"
                         >
-                          Back to Login
+                          Wapas Login Pe Ja
                         </button>
                       </div>
                     </div>
@@ -858,7 +846,7 @@ const UserDashboard = () => {
               ) : (
                 <div className="space-y-4 sm:space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email ya Mobile Number</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -868,7 +856,7 @@ const UserDashboard = () => {
                         value={emailOrMobile}
                         onChange={(e) => setEmailOrMobile(e.target.value)}
                         className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                        placeholder="Enter email or mobile number"
+                        placeholder="Email ya mobile number daal"
                       />
                     </div>
                   </div>
@@ -880,7 +868,7 @@ const UserDashboard = () => {
                         loginMethod === "otp" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
                       }`}
                     >
-                      Login with OTP
+                      OTP se Login
                     </button>
                     <button
                       onClick={() => setLoginMethod("password")}
@@ -888,7 +876,7 @@ const UserDashboard = () => {
                         loginMethod === "password" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
                       }`}
                     >
-                      Login with Password
+                      Password se Login
                     </button>
                   </div>
 
@@ -905,7 +893,7 @@ const UserDashboard = () => {
                           ) : (
                             <>
                               <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                              <span>Send OTP</span>
+                              <span>OTP Bhej</span>
                             </>
                           )}
                         </button>
@@ -930,7 +918,7 @@ const UserDashboard = () => {
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                            placeholder="Enter your password"
+                            placeholder="Apna password daal"
                           />
                           <button
                             type="button"
@@ -962,14 +950,14 @@ const UserDashboard = () => {
                           className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
                         >
                           <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
-                          <span>Forgot Password</span>
+                          <span>Password Bhool Gaya</span>
                         </button>
                       </div>
                     </div>
                   )}
                   <div className="text-center mt-4">
-                    <span className="text-sm text-gray-600">New to Shopymol? </span>
-                    <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold text-sm">Create Account</Link>
+                    <span className="text-sm text-gray-600">Shopymol mein naya hai? </span>
+                    <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold text-sm">Account Bana</Link>
                   </div>
                 </div>
               )}
