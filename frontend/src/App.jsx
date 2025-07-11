@@ -39,7 +39,7 @@ const App = () => {
         <div className="flex-grow-1" style={{ marginLeft: "250px" }}>
           <Routes>
             {/* Public Routes */}
-            <Route path="/" element={<Register />} />
+            <Route path="/register" element={<Register />} />
             <Route path="/profile-info" element={<ProfileInfo />} />
             <Route path="/aadhaar" element={<AadhaarKYC />} />
             <Route path="/pan" element={<PanKYC />} />
@@ -50,7 +50,7 @@ const App = () => {
               }
             />
             <Route path="/forgot-password" element={<ForgetPassword />} />
-            <Route path="/dashboard" element={<UserDashboard />} />
+            <Route path="/" element={<UserDashboard />} />
             <Route path="/admin/login" element={<AdminLogin />} />
 
             {/* Protected Admin Routes */}
