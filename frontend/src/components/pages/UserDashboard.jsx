@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
-  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
+  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff,Edit3
 } from "lucide-react";
 import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
 
@@ -39,11 +39,8 @@ const UserDashboard = () => {
         });
       }, 1000);
     }
-    if (otpSent && !otpVerified && otp.length === 6) {
-      handleVerifyOTP();
-    }
     return () => clearInterval(interval);
-  }, [otpSent, otpVerified, timer, otp]);
+  }, [otpSent, otpVerified, timer]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -96,7 +93,7 @@ const UserDashboard = () => {
       showPopup("success", "OTP verified successfully");
     } catch (err) {
       console.error("[Verify OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
+      showPopup("error", err.response?.data?.error || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -498,7 +495,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <NavBar />
+      {/* <NavBar /> */}
 
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
@@ -598,22 +595,38 @@ const UserDashboard = () => {
                           )}
                         </div>
                       </div>
-                      {canResend && (
+                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                         <button
-                          onClick={handleResendOTP}
+                          onClick={handleVerifyForgotPasswordOTP}
                           disabled={loading}
-                          className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                          className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
                         >
                           {loading ? (
-                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                            <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
                           ) : (
                             <>
-                              <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                              <span>Resend</span>
+                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>Verify OTP</span>
                             </>
                           )}
                         </button>
-                      )}
+                        {canResend && (
+                          <button
+                            onClick={handleResendOTP}
+                            disabled={loading}
+                            className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                          >
+                            {loading ? (
+                              <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                            ) : (
+                              <>
+                                <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+                                <span>Resend</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-4 sm:space-y-6">
@@ -769,22 +782,38 @@ const UserDashboard = () => {
                               )}
                             </div>
                           </div>
-                          {canResend && (
+                          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                             <button
-                              onClick={handleResendOTP}
+                              onClick={handleVerifyOTP}
                               disabled={loading}
-                              className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                              className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
                             >
                               {loading ? (
-                                <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
                               ) : (
                                 <>
-                                  <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                                  <span>Resend</span>
+                                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                                  <span>Verify OTP</span>
                                 </>
                               )}
                             </button>
-                          )}
+                            {canResend && (
+                              <button
+                                onClick={handleResendOTP}
+                                disabled={loading}
+                                className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                              >
+                                {loading ? (
+                                  <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
+                                ) : (
+                                  <>
+                                    <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    <span>Resend</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
                     </>
