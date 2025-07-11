@@ -38,6 +38,13 @@ const Register = () => {
     return () => clearInterval(interval);
   }, [isOTPSent, isOTPVerified, timer]);
 
+  // Auto verify OTP when 6 digits are entered
+  useEffect(() => {
+    if (otp.length === 6 && isOTPSent && !isOTPVerified) {
+      handleVerifyOTP();
+    }
+  }, [otp, isOTPSent, isOTPVerified]);
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -332,21 +339,7 @@ const handleResendOTP = async () => {
                     )}
                   </div>
                 </div>
-                <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                  <button
-                    onClick={handleVerifyOTP}
-                    disabled={loading}
-                    className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 text-sm sm:text-base"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>Verify OTP</span>
-                      </>
-                    )}
-                  </button>
+                <div className="flex justify-center">
                   {canResend && (
                     <button
                       onClick={handleResendOTP}
@@ -358,7 +351,7 @@ const handleResendOTP = async () => {
                       ) : (
                         <>
                           <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                          <span>Resend</span>
+                          <span>Resend OTP</span>
                         </>
                       )}
                     </button>
