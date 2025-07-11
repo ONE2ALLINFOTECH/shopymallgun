@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
@@ -13,7 +12,6 @@ const userSchema = new mongoose.Schema({
   address: { type: String },
   resetOtp: { type: String },
   resetOtpExpires: { type: Date },
-  isActive: { type: Boolean, default: true }, // Added for deactivation
 });
 
 module.exports = mongoose.model("User", userSchema);

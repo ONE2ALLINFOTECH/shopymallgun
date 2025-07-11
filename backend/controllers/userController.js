@@ -1,4 +1,3 @@
-
 const User = require("../models/User");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
@@ -96,6 +95,7 @@ const verifyOTP = async (req, res) => {
     }
   }
 
+  // Check both formats to handle database inconsistencies
   const user = await User.findOne({
     $or: [
       { emailOrMobile: normalizedInput },
@@ -143,7 +143,7 @@ const registerUser = async (req, res) => {
 };
 
 const saveProfileInfo = async (req, res) => {
-  const { emailOrMobile, firstName, lastName, gender } = req.body;
+  const { emailOrMobile, firstName, lastName, gender, address } = req.body;
   let normalizedInput = emailOrMobile;
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
@@ -153,34 +153,20 @@ const saveProfileInfo = async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({
-      $or: [
-        { emailOrMobile: normalizedInput },
-        { emailOrMobile: normalizedInput.replace(/^91/, "") },
-      ],
-    });
+    const user = await User.findOne({ emailOrMobile: normalizedInput });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Update only provided fields
-    if (firstName) user.firstName = firstName;
-    if (lastName) user.lastName = lastName;
-    if (gender) user.gender = gender;
+    user.firstName = firstName;
+    user.lastName = lastName;
+    user.gender = gender;
+    user.address = address;
 
     await user.save();
 
-    res.json({
-      success: true,
-      message: "Profile info saved successfully",
-      data: {
-        emailOrMobile: user.emailOrMobile,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        gender: user.gender,
-      },
-    });
+    res.json({ success: true, message: "Profile info saved successfully" });
   } catch (err) {
     console.error("❌ Error saving profile:", err.message);
     res.status(500).json({ error: "Error saving profile" });
@@ -241,6 +227,7 @@ const verifyEmailOTP = async (req, res) => {
   res.json({ success: true, message: "OTP verified" });
 };
 
+
 const getUserProfile = async (req, res) => {
   const { emailOrMobile } = req.query;
   let normalizedInput = emailOrMobile;
@@ -274,7 +261,6 @@ const getUserProfile = async (req, res) => {
     res.status(500).json({ error: "Error fetching profile" });
   }
 };
-
 const loginUser = async (req, res) => {
   const { emailOrMobile, password } = req.body;
   let normalizedInput = emailOrMobile;
@@ -313,9 +299,7 @@ const loginUser = async (req, res) => {
     console.error("[Backend] Login Error:", err.message);
     res.status(500).json({ error: "Login failed" });
   }
-};
-
-const sendForgotPasswordOTP = async (req, res) => {
+};const sendForgotPasswordOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
 
   let normalizedInput = emailOrMobile;
@@ -371,6 +355,7 @@ const sendForgotPasswordOTP = async (req, res) => {
       await transporter.sendMail(mailOptions);
       console.log("[Email] OTP sent to:", emailOrMobile);
     } else {
+      // ✅ SEND SMS USING AXIOS (Same style as your sendOTP)
       const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
 
       try {
@@ -416,18 +401,19 @@ const verifyForgotPasswordOTP = async (req, res) => {
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
+    // ✅ Clear OTP after verification
     user.otp = null;
     user.otpExpires = null;
     await user.save();
 
     console.log("[Backend] OTP verified and cleared");
     res.json({ success: true, message: "OTP verified successfully" });
+
   } catch (err) {
     console.error("[Backend] Verify Forgot Password OTP Error:", err.message);
     res.status(500).json({ error: "OTP verification failed" });
   }
 };
-
 const resetPassword = async (req, res) => {
   const { emailOrMobile, password } = req.body;
 
@@ -451,75 +437,16 @@ const resetPassword = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // ✅ No OTP check here now
     user.password = await bcrypt.hash(password, 10);
     await user.save();
 
     console.log("[Backend] Password reset successful");
     res.json({ success: true, message: "Password reset successfully" });
+
   } catch (err) {
     console.error("[Backend] Reset Password Error:", err.message);
     res.status(500).json({ error: "Password reset failed" });
-  }
-};
-
-const deactivateAccount = async (req, res) => {
-  const { emailOrMobile } = req.body;
-  let normalizedInput = emailOrMobile;
-  if (!emailOrMobile.includes("@")) {
-    normalizedInput = emailOrMobile.replace(/\D/g, "");
-    if (normalizedInput.length === 10) {
-      normalizedInput = `91${normalizedInput}`;
-    }
-  }
-
-  try {
-    const user = await User.findOne({
-      $or: [
-        { emailOrMobile: normalizedInput },
-        { emailOrMobile: normalizedInput.replace(/^91/, "") },
-      ],
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    user.isActive = false;
-    await user.save();
-
-    res.json({ success: true, message: "Account deactivated successfully" });
-  } catch (err) {
-    console.error("❌ Error deactivating account:", err.message);
-    res.status(500).json({ error: "Failed to deactivate account" });
-  }
-};
-
-const deleteAccount = async (req, res) => {
-  const { emailOrMobile } = req.body;
-  let normalizedInput = emailOrMobile;
-  if (!emailOrMobile.includes("@")) {
-    normalizedInput = emailOrMobile.replace(/\D/g, "");
-    if (normalizedInput.length === 10) {
-      normalizedInput = `91${normalizedInput}`;
-    }
-  }
-
-  try {
-    const user = await User.findOneAndDelete({
-      $or: [
-        { emailOrMobile: normalizedInput },
-        { emailOrMobile: normalizedInput.replace(/^91/, "") },
-      ],
-    });
-
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json({ success: true, message: "Account deleted successfully" });
-  } catch (err) {
-    console.error("❌ Error deleting account:", err.message);
-    res.status(500).json({ error: "Failed to delete account" });
   }
 };
 
@@ -535,6 +462,5 @@ module.exports = {
   sendForgotPasswordOTP,
   verifyForgotPasswordOTP,
   getUserProfile,
-  deactivateAccount,
-  deleteAccount,
+  loginUser,
 };
