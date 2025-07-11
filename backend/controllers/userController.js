@@ -143,7 +143,7 @@ const registerUser = async (req, res) => {
 };
 
 const saveProfileInfo = async (req, res) => {
-  const { emailOrMobile, firstName, lastName, gender, address } = req.body;
+  const { emailOrMobile, firstName, lastName, gender } = req.body;
   let normalizedInput = emailOrMobile;
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
@@ -153,16 +153,20 @@ const saveProfileInfo = async (req, res) => {
   }
 
   try {
-    const user = await User.findOne({ emailOrMobile: normalizedInput });
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
 
     if (!user) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    user.firstName = firstName;
-    user.lastName = lastName;
-    user.gender = gender;
-    user.address = address;
+    user.firstName = firstName || user.firstName;
+    user.lastName = lastName || user.lastName;
+    user.gender = gender || user.gender;
 
     await user.save();
 
@@ -227,7 +231,6 @@ const verifyEmailOTP = async (req, res) => {
   res.json({ success: true, message: "OTP verified" });
 };
 
-
 const getUserProfile = async (req, res) => {
   const { emailOrMobile } = req.query;
   let normalizedInput = emailOrMobile;
@@ -253,7 +256,6 @@ const getUserProfile = async (req, res) => {
       firstName: user.firstName,
       lastName: user.lastName,
       gender: user.gender,
-      address: user.address,
       isVerified: user.isVerified,
     });
   } catch (err) {
@@ -261,6 +263,7 @@ const getUserProfile = async (req, res) => {
     res.status(500).json({ error: "Error fetching profile" });
   }
 };
+
 const loginUser = async (req, res) => {
   const { emailOrMobile, password } = req.body;
   let normalizedInput = emailOrMobile;
@@ -299,7 +302,9 @@ const loginUser = async (req, res) => {
     console.error("[Backend] Login Error:", err.message);
     res.status(500).json({ error: "Login failed" });
   }
-};const sendForgotPasswordOTP = async (req, res) => {
+};
+
+const sendForgotPasswordOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
 
   let normalizedInput = emailOrMobile;
@@ -355,7 +360,6 @@ const loginUser = async (req, res) => {
       await transporter.sendMail(mailOptions);
       console.log("[Email] OTP sent to:", emailOrMobile);
     } else {
-      // ✅ SEND SMS USING AXIOS (Same style as your sendOTP)
       const url = `http://websms.textidea.com/app/smsapi/index.php?key=368214D9E23633&campaign=8559&routeid=18&type=text&contacts=${normalizedInput}&senderid=SHPMOL&msg=${encodeURIComponent(msg)}`;
 
       try {
@@ -401,7 +405,6 @@ const verifyForgotPasswordOTP = async (req, res) => {
       return res.status(400).json({ error: "Invalid or expired OTP" });
     }
 
-    // ✅ Clear OTP after verification
     user.otp = null;
     user.otpExpires = null;
     await user.save();
@@ -414,6 +417,7 @@ const verifyForgotPasswordOTP = async (req, res) => {
     res.status(500).json({ error: "OTP verification failed" });
   }
 };
+
 const resetPassword = async (req, res) => {
   const { emailOrMobile, password } = req.body;
 
@@ -437,7 +441,6 @@ const resetPassword = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // ✅ No OTP check here now
     user.password = await bcrypt.hash(password, 10);
     await user.save();
 
@@ -447,6 +450,37 @@ const resetPassword = async (req, res) => {
   } catch (err) {
     console.error("[Backend] Reset Password Error:", err.message);
     res.status(500).json({ error: "Password reset failed" });
+  }
+};
+
+const deleteAccount = async (req, res) => {
+  const { emailOrMobile } = req.body;
+
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+
+  try {
+    console.log("[Backend] Deleting account for:", normalizedInput);
+
+    const user = await User.findOneAndDelete({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    console.log("[Backend] Account deleted successfully");
+    res.json({ success: true, message: "Account deleted successfully" });
+  } catch (err) {
+    console.error("[Backend] Delete Account Error:", err.message);
+    res.status(500).json({ error: "Failed to delete account" });
   }
 };
 
@@ -462,5 +496,5 @@ module.exports = {
   sendForgotPasswordOTP,
   verifyForgotPasswordOTP,
   getUserProfile,
-  loginUser,
+  deleteAccount
 };

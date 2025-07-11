@@ -10,6 +10,7 @@ const {
   verifyForgotPasswordOTP, // For forgot password OTP verification
   resetPassword,
   getUserProfile,
+  deleteAccount
 } = require("../controllers/userController");
 
 // Registration and Profile Routes
@@ -24,5 +25,5 @@ router.post("/login", loginUser);
 router.post("/forgot/send-otp", sendForgotPasswordOTP);
 router.post("/forgot/verify-otp", verifyForgotPasswordOTP);
 router.post("/forgot/reset-password", resetPassword);
-
+router.delete("/delete-account", deleteAccount);
 module.exports = router;
