@@ -19,7 +19,7 @@ const UserDashboard = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState("otp");
-  const [userData, setUserData] = useState(null);
+  const [userData, setUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [timer, setTimer] = useState(120);
@@ -102,7 +102,12 @@ const UserDashboard = () => {
       await api.post("/user/verify-otp", { emailOrMobile, otp: otp.join("") });
       const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
       console.log("[Verify OTP] Profile Data:", res.data);
-      setUserData(res.data);
+      setUserData({
+        firstName: res.data.firstName || "",
+        lastName: res.data.lastName || "",
+        gender: res.data.gender || "",
+        emailOrMobile: res.data.emailOrMobile || emailOrMobile
+      });
       setOtpVerified(true);
       setIsLoggedIn(true);
       setShowOtpPopup(false);
@@ -127,7 +132,12 @@ const UserDashboard = () => {
       console.log("[Password Login] Response:", res.data);
       const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
       console.log("[Password Login] Profile Data:", profileRes.data);
-      setUserData(profileRes.data);
+      setUserData({
+        firstName: profileRes.data.firstName || "",
+        lastName: profileRes.data.lastName || "",
+        gender: profileRes.data.gender || "",
+        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
+      });
       setIsLoggedIn(true);
       showPopup("success", res.data.message || "Login successful");
     } catch (err) {
@@ -249,7 +259,7 @@ const UserDashboard = () => {
     setConfirmPassword("");
     setOtpSent(false);
     setOtpVerified(false);
-    setUserData(null);
+    setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
     setShowForgotPassword(false);
     setTimer(120);
     setCanResend(false);
@@ -560,12 +570,12 @@ const UserDashboard = () => {
           <div className="bg-white rounded-lg shadow-lg p-4 w-80">
             <div className="flex justify-between items-center mb-2">
               <h2 className="text-lg font-semibold text-blue-700">Login</h2>
-              <button onClick={() => setShowOtpPopup(false)} className="text-blue-500 hover:text-blue-700">
+              <button onClick={() => { setShowOtpPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-2">
-              Enter OTP Sent to one2xxxxxxxxxx@gmail.xxx and 730xxxxxx43
+              Enter OTP Sent to {emailOrMobile}
             </p>
             <div className="flex justify-center space-x-2 mb-2">
               {otp.map((digit, index) => (
