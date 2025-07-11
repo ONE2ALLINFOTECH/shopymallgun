@@ -4,6 +4,7 @@ import {
   ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
 import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
+import { Link } from "react-router-dom"; // Import Link from react-router-dom
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
@@ -415,7 +416,7 @@ const UserDashboard = () => {
   const PersonalInfoSection = () => (
     <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">Personal Information</h2>
+        <h1 className="text-lg font-semibold text-gray-800">Personal Information</h1>
         <button className="text-blue-600 hover:text-blue-800">
           <Edit3 className="w-4 h-4" />
         </button>
@@ -541,7 +542,7 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-   
+     
 
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
@@ -844,6 +845,10 @@ const UserDashboard = () => {
                       </div>
                     </div>
                   )}
+                  <div className="text-center mt-4">
+                    <span className="text-sm text-gray-600">New to Shopymol? </span>
+                    <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold text-sm">Create Account</Link>
+                  </div>
                 </div>
               )}
             </div>
