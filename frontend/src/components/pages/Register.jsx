@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import { Mail, Phone, Eye, EyeOff, Lock, Shield, CheckCircle, Send, X, AlertCircle, RefreshCw, Clock, Mic } from "lucide-react";
-import "./common.css";
 import api from "../api/api";
 
 const Register = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
-  const [otp, setOtp] = useState("");
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isOTPSent, setIsOTPSent] = useState(false);
   const [isOTPVerified, setIsOTPVerified] = useState(false);
   const [password, setPassword] = useState("");
@@ -21,6 +19,7 @@ const Register = () => {
   const [timer, setTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
+  const [showOTPPopup, setShowOTPPopup] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -40,7 +39,8 @@ const Register = () => {
 
   // Auto verify OTP when 6 digits are entered
   useEffect(() => {
-    if (otp.length === 6 && isOTPSent && !isOTPVerified) {
+    const otpString = otp.join("");
+    if (otpString.length === 6 && isOTPSent && !isOTPVerified) {
       handleVerifyOTP();
     }
   }, [otp, isOTPSent, isOTPVerified]);
@@ -97,57 +97,60 @@ const Register = () => {
     }
   };
 
-const handleSendOTP = async () => {
-  if (!emailOrMobile.trim()) {
-    setErrors({ emailOrMobile: "Email or mobile number is required" });
-    return;
-  }
-  if (!isCaptchaVerified) {
-    showPopup("error", "Please verify CAPTCHA first");
-    return;
-  }
-  setLoading(true);
-  setErrors({});
-  try {
-    const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: true }); // Add isRegistration: true
-    showPopup("success", res.data.message);
-    setIsOTPSent(true);
-    setTimer(120);
-    setCanResend(false);
-  } catch (err) {
-    showPopup("error", err.response?.data?.error || "Failed to send OTP");
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleSendOTP = async () => {
+    if (!emailOrMobile.trim()) {
+      setErrors({ emailOrMobile: "Email or mobile number is required" });
+      return;
+    }
+    if (!isCaptchaVerified) {
+      showPopup("error", "Please verify CAPTCHA first");
+      return;
+    }
+    setLoading(true);
+    setErrors({});
+    try {
+      const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: true });
+      showPopup("success", res.data.message);
+      setIsOTPSent(true);
+      setShowOTPPopup(true);
+      setTimer(120);
+      setCanResend(false);
+    } catch (err) {
+      showPopup("error", err.response?.data?.error || "Failed to send OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-const handleResendOTP = async () => {
-  setLoading(true);
-  setErrors({});
-  try {
-    const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: true }); // Add isRegistration: true
-    showPopup("success", "OTP resent successfully!");
-    setTimer(120);
-    setCanResend(false);
-    setOtp("");
-  } catch (err) {
-    showPopup("error", err.response?.data?.error || "Failed to resend OTP");
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleResendOTP = async () => {
+    setLoading(true);
+    setErrors({});
+    try {
+      const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: true });
+      showPopup("success", "OTP resent successfully!");
+      setTimer(120);
+      setCanResend(false);
+      setOtp(["", "", "", "", "", ""]);
+    } catch (err) {
+      showPopup("error", err.response?.data?.error || "Failed to resend OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleVerifyOTP = async () => {
-    if (!otp.trim()) {
+    const otpString = otp.join("");
+    if (!otpString.trim()) {
       setErrors({ otp: "OTP is required" });
       return;
     }
     setLoading(true);
     setErrors({});
     try {
-      const res = await api.post("/user/verify-otp", { emailOrMobile, otp });
+      const res = await api.post("/user/verify-otp", { emailOrMobile, otp: otpString });
       showPopup("success", res.data.message);
       setIsOTPVerified(true);
+      setShowOTPPopup(false);
     } catch (err) {
       showPopup("error", err.response?.data?.error || "OTP verification failed");
     } finally {
@@ -179,10 +182,32 @@ const handleResendOTP = async () => {
     }
   };
 
+  const handleOTPChange = (index, value) => {
+    if (value.length <= 1 && /^\d*$/.test(value)) {
+      const newOtp = [...otp];
+      newOtp[index] = value;
+      setOtp(newOtp);
+      
+      // Auto focus next input
+      if (value && index < 5) {
+        const nextInput = document.getElementById(`otp-${index + 1}`);
+        if (nextInput) nextInput.focus();
+      }
+    }
+  };
+
+  const handleOTPKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !otp[index] && index > 0) {
+      const prevInput = document.getElementById(`otp-${index - 1}`);
+      if (prevInput) prevInput.focus();
+    }
+  };
+
   const isEmail = emailOrMobile.includes("@");
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-2 sm:p-4">
+      {/* Original Popup */}
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
           <div className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 transform transition-all duration-300 ${popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
@@ -200,6 +225,78 @@ const handleResendOTP = async () => {
             <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">{popup.message}</p>
             <div className={`w-full h-1 rounded-full ${popup.type === "success" ? "bg-green-200" : "bg-red-200"}`}>
               <div className={`h-full rounded-full animate-pulse ${popup.type === "success" ? "bg-green-500" : "bg-red-500"}`} style={{ width: "100%" }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Flipkart Style OTP Popup */}
+      {showOTPPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full mx-4 transform transition-all duration-300 scale-100 opacity-100">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Login</h3>
+                <button 
+                  onClick={() => setShowOTPPopup(false)} 
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  Enter OTP Sent to {emailOrMobile.includes("@") ? 
+                    emailOrMobile.replace(/(.{3})(.*)(@.*)/g, "$1xxxxxxxxxx$3") : 
+                    emailOrMobile.replace(/(.{3})(.*)(.{2})/g, "$1xxxxxx$3")
+                  }
+                </p>
+                
+                <div className="flex space-x-2 mb-4">
+                  {otp.map((digit, index) => (
+                    <input
+                      key={index}
+                      id={`otp-${index}`}
+                      type="text"
+                      value={digit}
+                      onChange={(e) => handleOTPChange(index, e.target.value)}
+                      onKeyDown={(e) => handleOTPKeyDown(index, e)}
+                      className="w-12 h-12 text-center border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:outline-none text-lg font-semibold"
+                      maxLength="1"
+                    />
+                  ))}
+                </div>
+
+                {canResend ? (
+                  <button
+                    onClick={handleResendOTP}
+                    disabled={loading}
+                    className="text-blue-600 hover:text-blue-700 font-medium text-sm"
+                  >
+                    {loading ? "Resending..." : "Resend OTP"}
+                  </button>
+                ) : (
+                  <p className="text-blue-600 text-sm">
+                    Resend otp in {formatTime(timer)}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={handleVerifyOTP}
+                disabled={loading || otp.join("").length !== 6}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? (
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                    Verifying...
+                  </div>
+                ) : (
+                  "Verify OTP"
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -309,55 +406,6 @@ const handleResendOTP = async () => {
                   </>
                 )}
               </button>
-            )}
-
-            {isOTPSent && !isOTPVerified && (
-              <div className="space-y-3 sm:space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Enter OTP</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      className={`w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base ${errors.otp ? "border-red-500" : "border-gray-200 focus:border-blue-500"}`}
-                      placeholder="Enter 6-digit OTP"
-                      maxLength={6}
-                    />
-                  </div>
-                  {errors.otp && <p className="text-red-500 text-xs sm:text-sm mt-1">{errors.otp}</p>}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mt-2 space-y-1 sm:space-y-0">
-                    <p className="text-xs sm:text-sm text-gray-500 break-all">OTP sent to {emailOrMobile}</p>
-                    {timer > 0 && (
-                      <div className="flex items-center space-x-1 text-xs sm:text-sm text-blue-600">
-                        <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
-                        <span>{formatTime(timer)}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-center">
-                  {canResend && (
-                    <button
-                      onClick={handleResendOTP}
-                      disabled={loading}
-                      className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50 text-sm sm:text-base"
-                    >
-                      {loading ? (
-                        <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-white"></div>
-                      ) : (
-                        <>
-                          <RefreshCw className="w-3 h-3 sm:w-4 sm:h-4" />
-                          <span>Resend OTP</span>
-                        </>
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
             )}
 
             {isOTPVerified && (
