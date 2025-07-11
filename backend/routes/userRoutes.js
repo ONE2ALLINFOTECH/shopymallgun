@@ -1,15 +1,20 @@
+
 const express = require("express");
 const router = express.Router();
 const {
-  sendOTP, // For registration OTP
-  verifyOTP, // For registration OTP verification
+  sendOTP,
+  verifyOTP,
   registerUser,
   saveProfileInfo,
   loginUser,
-  sendForgotPasswordOTP, // For forgot password OTP
-  verifyForgotPasswordOTP, // For forgot password OTP verification
+  sendEmailOTP,
+  verifyEmailOTP,
+  sendForgotPasswordOTP,
+  verifyForgotPasswordOTP,
   resetPassword,
   getUserProfile,
+  deactivateAccount,
+  deleteAccount,
 } = require("../controllers/userController");
 
 // Registration and Profile Routes
@@ -24,5 +29,11 @@ router.post("/login", loginUser);
 router.post("/forgot/send-otp", sendForgotPasswordOTP);
 router.post("/forgot/verify-otp", verifyForgotPasswordOTP);
 router.post("/forgot/reset-password", resetPassword);
+router.post("/send-email-otp", sendEmailOTP);
+router.post("/verify-email-otp", verifyEmailOTP);
+
+// New Routes for Deactivate and Delete
+router.post("/deactivate", deactivateAccount);
+router.post("/delete", deleteAccount);
 
 module.exports = router;

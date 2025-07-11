@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
@@ -27,6 +28,13 @@ const UserDashboard = () => {
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editData, setEditData] = useState({
+    firstName: "",
+    lastName: "",
+    gender: "",
+    emailOrMobile: ""
+  });
 
   useEffect(() => {
     let interval;
@@ -46,6 +54,17 @@ const UserDashboard = () => {
     }
     return () => clearInterval(interval);
   }, [otpSent, otpVerified, timer, otp]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setEditData({
+        firstName: userData.firstName || "",
+        lastName: userData.lastName || "",
+        gender: userData.gender || "",
+        emailOrMobile: userData.emailOrMobile || ""
+      });
+    }
+  }, [userData]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -276,6 +295,70 @@ const UserDashboard = () => {
     }
   };
 
+  const handleSaveProfile = async () => {
+    if (!editData.firstName || !editData.emailOrMobile) {
+      showPopup("error", "First name and email/mobile are required");
+      return;
+    }
+    setLoading(true);
+    try {
+      console.log("[Save Profile] Updating profile for:", emailOrMobile);
+      const res = await api.post("/user/profile-info", {
+        emailOrMobile: userData.emailOrMobile, // Use original emailOrMobile for identification
+        firstName: editData.firstName,
+        lastName: editData.lastName,
+        gender: editData.gender,
+      });
+      console.log("[Save Profile] Response:", res.data);
+      setUserData({
+        firstName: editData.firstName,
+        lastName: editData.lastName,
+        gender: editData.gender,
+        emailOrMobile: userData.emailOrMobile // Preserve original emailOrMobile
+      });
+      setIsEditing(false);
+      showPopup("success", "Profile updated successfully");
+    } catch (err) {
+      console.error("[Save Profile] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to update profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeactivateAccount = async () => {
+    setLoading(true);
+    try {
+      console.log("[Deactivate Account] Deactivating for:", userData.emailOrMobile);
+      const res = await api.post("/user/deactivate", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Deactivate Account] Response:", res.data);
+      handleLogout();
+      showPopup("success", "Account deactivated successfully");
+    } catch (err) {
+      console.error("[Deactivate Account] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to deactivate account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
+    setLoading(true);
+    try {
+      console.log("[Delete Account] Deleting for:", userData.emailOrMobile);
+      const res = await api.post("/user/delete", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Delete Account] Response:", res.data);
+      handleLogout();
+      showPopup("success", "Account deleted successfully");
+    } catch (err) {
+      console.error("[Delete Account] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to delete account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const sidebarItems = [
     { icon: Package, label: "MY ORDERS", path: "/my-orders" },
     {
@@ -417,9 +500,38 @@ const UserDashboard = () => {
     <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold text-gray-800">Personal Information</h1>
-        <button className="text-blue-600 hover:text-blue-800">
-          <Edit3 className="w-4 h-4" />
-        </button>
+        {!isEditing ? (
+          <button
+            onClick={() => setIsEditing(true)}
+            className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+          >
+            <Edit3 className="w-4 h-4" />
+            <span>Edit</span>
+          </button>
+        ) : (
+          <div className="flex space-x-2">
+            <button
+              onClick={handleSaveProfile}
+              disabled={loading}
+              className="bg-gradient-to-r from-green-600 to-blue-600 text-white py-1.5 px-4 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 disabled:opacity-50 flex items-center space-x-2"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Save</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setIsEditing(false)}
+              className="text-gray-600 hover:text-gray-800"
+            >
+              Cancel
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="space-y-6">
@@ -427,19 +539,21 @@ const UserDashboard = () => {
           <div>
             <input
               type="text"
-              value={userData?.firstName || ""}
+              value={isEditing ? editData.firstName : userData?.firstName || ""}
+              onChange={(e) => isEditing && setEditData({ ...editData, firstName: e.target.value })}
               className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="First Name"
-              readOnly
+              readOnly={!isEditing}
             />
           </div>
           <div>
             <input
               type="text"
-              value={userData?.lastName || ""}
+              value={isEditing ? editData.lastName : userData?.lastName || ""}
+              onChange={(e) => isEditing && setEditData({ ...editData, lastName: e.target.value })}
               className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="Last Name"
-              readOnly
+              readOnly={!isEditing}
             />
           </div>
         </div>
@@ -452,9 +566,10 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Male"
-                checked={userData?.gender === "Male"}
+                checked={isEditing ? editData.gender === "Male" : userData?.gender === "Male"}
+                onChange={() => isEditing && setEditData({ ...editData, gender: "Male" })}
                 className="mr-2"
-                disabled
+                disabled={!isEditing}
               />
               Male
             </label>
@@ -463,9 +578,10 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Female"
-                checked={userData?.gender === "Female"}
+                checked={isEditing ? editData.gender === "Female" : userData?.gender === "Female"}
+                onChange={() => isEditing && setEditData({ ...editData, gender: "Female" })}
                 className="mr-2"
-                disabled
+                disabled={!isEditing}
               />
               Female
             </label>
@@ -475,26 +591,48 @@ const UserDashboard = () => {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700">Email Address</label>
-            <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+            {isEditing && (
+              <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+            )}
           </div>
           <input
             type="email"
-            value={userData?.emailOrMobile.includes("@") ? userData.emailOrMobile : ""}
+            value={
+              isEditing
+                ? editData.emailOrMobile.includes("@")
+                  ? editData.emailOrMobile
+                  : ""
+                : userData?.emailOrMobile.includes("@")
+                ? userData.emailOrMobile
+                : ""
+            }
+            onChange={(e) => isEditing && setEditData({ ...editData, emailOrMobile: e.target.value })}
             className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
-            readOnly
+            readOnly={!isEditing}
           />
         </div>
 
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
-            <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+            {isEditing && (
+              <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+            )}
           </div>
           <input
             type="text"
-            value={!userData?.emailOrMobile.includes("@") ? `+91${userData.emailOrMobile.replace(/^91/, "")}` : ""}
+            value={
+              isEditing
+                ? !editData.emailOrMobile.includes("@")
+                  ? `+91${editData.emailOrMobile.replace(/^91/, "")}`
+                  : ""
+                : !userData?.emailOrMobile.includes("@")
+                ? `+91${userData.emailOrMobile.replace(/^91/, "")}`
+                : ""
+            }
+            onChange={(e) => isEditing && setEditData({ ...editData, emailOrMobile: e.target.value.replace(/\D/g, "") })}
             className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
-            readOnly
+            readOnly={!isEditing}
           />
         </div>
 
@@ -532,8 +670,20 @@ const UserDashboard = () => {
 
         <div className="border-t pt-4">
           <div className="flex space-x-4">
-            <button className="text-blue-600 hover:text-blue-800">Deactivate Account</button>
-            <button className="text-red-600 hover:text-red-800">Delete Account</button>
+            <button
+              onClick={handleDeactivateAccount}
+              disabled={loading}
+              className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            >
+              Deactivate Account
+            </button>
+            <button
+              onClick={handleDeleteAccount}
+              disabled={loading}
+              className="text-red-600 hover:text-red-800 disabled:opacity-50"
+            >
+              Delete Account
+            </button>
           </div>
         </div>
       </div>
@@ -542,8 +692,6 @@ const UserDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-     
-
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
           <div className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 transform transition-all duration-300 ${popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
