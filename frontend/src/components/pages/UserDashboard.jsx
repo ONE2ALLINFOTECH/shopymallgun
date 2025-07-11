@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
@@ -538,6 +537,7 @@ const UserDashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <input
+              key="firstName-input"
               type="text"
               value={isEditing ? editData.firstName : userData?.firstName || ""}
               onChange={(e) => isEditing && setEditData({ ...editData, firstName: e.target.value })}
@@ -548,6 +548,7 @@ const UserDashboard = () => {
           </div>
           <div>
             <input
+              key="lastName-input"
               type="text"
               value={isEditing ? editData.lastName : userData?.lastName || ""}
               onChange={(e) => isEditing && setEditData({ ...editData, lastName: e.target.value })}
@@ -585,6 +586,18 @@ const UserDashboard = () => {
               />
               Female
             </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="gender"
+                value="Other"
+                checked={isEditing ? editData.gender === "Other" : userData?.gender === "Other"}
+                onChange={() => isEditing && setEditData({ ...editData, gender: "Other" })}
+                className="mr-2"
+                disabled={!isEditing}
+              />
+              Other
+            </label>
           </div>
         </div>
 
@@ -596,6 +609,7 @@ const UserDashboard = () => {
             )}
           </div>
           <input
+            key="email-input"
             type="email"
             value={
               isEditing
@@ -620,6 +634,7 @@ const UserDashboard = () => {
             )}
           </div>
           <input
+            key="mobile-input"
             type="text"
             value={
               isEditing
