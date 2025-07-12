@@ -20,7 +20,7 @@ const UserDashboard = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState("otp");
-  const [userData, setUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFAEnabled: false }); // Added twoFAEnabled
+  const [userData, setUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFAEnabled: false });
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [timer, setTimer] = useState(120);
@@ -34,11 +34,11 @@ const UserDashboard = () => {
     gender: "",
     emailOrMobile: ""
   });
-  const [show2FAPopup, setShow2FAPopup] = useState(false); // Added for 2FA setup
-  const [qrCodeUrl, setQrCodeUrl] = useState(""); // Added for QR code
-  const [twoFACode, setTwoFACode] = useState(""); // Added for 2FA code input
-  const [twoFARequired, setTwoFARequired] = useState(false); // Added for 2FA login flow
-  const [twoFAUserId, setTwoFAUserId] = useState(""); // Added to store userId for 2FA verification
+  const [show2FAPopup, setShow2FAPopup] = useState(false);
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [twoFACode, setTwoFACode] = useState("");
+  const [twoFARequired, setTwoFARequired] = useState(false);
+  const [twoFAUserId, setTwoFAUserId] = useState("");
 
   useEffect(() => {
     let interval;
@@ -131,7 +131,7 @@ const UserDashboard = () => {
         lastName: res.data.lastName || "",
         gender: res.data.gender || "",
         emailOrMobile: res.data.emailOrMobile || emailOrMobile,
-        twoFAEnabled: res.data.twoFAEnabled || false // Added
+        twoFAEnabled: res.data.twoFAEnabled || false
       });
       setOtpVerified(true);
       setIsLoggedIn(true);
@@ -158,7 +158,7 @@ const UserDashboard = () => {
       if (res.data.twoFARequired) {
         setTwoFARequired(true);
         setTwoFAUserId(res.data.userId);
-        setShow2FAPopup(true); // Show 2FA popup
+        setShow2FAPopup(true);
       } else {
         const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
         console.log("[Password Login] Profile Data:", profileRes.data);
@@ -167,7 +167,7 @@ const UserDashboard = () => {
           lastName: profileRes.data.lastName || "",
           gender: profileRes.data.gender || "",
           emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
-          twoFAEnabled: profileRes.data.twoFAEnabled || false // Added
+          twoFAEnabled: profileRes.data.twoFAEnabled || false
         });
         setIsLoggedIn(true);
         showPopup("success", res.data.message || "Login successful");
@@ -291,24 +291,31 @@ const UserDashboard = () => {
     setConfirmPassword("");
     setOtpSent(false);
     setOtpVerified(false);
-    setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFAEnabled: false }); // Reset twoFAEnabled
+    setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFAEnabled: false });
     setShowForgotPassword(false);
     setTimer(120);
     setCanResend(false);
-    setShow2FAPopup(false); // Added
-    setTwoFACode(""); // Added
-    setTwoFARequired(false); // Added
-    setTwoFAUserId(""); // Added
-    setQrCodeUrl(""); // Added
+    setShow2FAPopup(false);
+    setTwoFACode("");
+    setTwoFARequired(false);
+    setTwoFAUserId("");
+    setQrCodeUrl("");
     showPopup("success", "Logged out successfully");
   };
 
   const handleOtpChange = (index, value) => {
+    if (!/^[0-9]*$/.test(value) && value !== "") return; // Only allow digits or empty string
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1); // Only take the last character
+    newOtp[index] = value.slice(-1); // Take the last character
     setOtp(newOtp);
+
+    // Move to next input if a digit is entered
     if (value && index < 5) {
       document.getElementById(`otp-input-${index + 1}`).focus();
+    }
+    // Move to previous input on backspace
+    if (!value && index > 0) {
+      document.getElementById(`otp-input-${index - 1}`).focus();
     }
   };
 
@@ -321,7 +328,7 @@ const UserDashboard = () => {
     try {
       console.log("[Save Profile] Updating profile for:", emailOrMobile);
       const res = await api.post("/user/profile-info", {
-        emailOrMobile: userData.emailOrMobile, // Use original emailOrMobile for identification
+        emailOrMobile: userData.emailOrMobile,
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
@@ -331,8 +338,8 @@ const UserDashboard = () => {
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
-        emailOrMobile: userData.emailOrMobile, // Preserve original emailOrMobile
-        twoFAEnabled: userData.twoFAEnabled // Preserve 2FA status
+        emailOrMobile: userData.emailOrMobile,
+        twoFAEnabled: userData.twoFAEnabled
       });
       setIsEditing(false);
       showPopup("success", "Profile updated successfully");
@@ -377,7 +384,22 @@ const UserDashboard = () => {
     }
   };
 
-  // New 2FA Setup Handler
+  const handleDisable2FA = async () => {
+    setLoading(true);
+    try {
+      console.log("[Disable 2FA] Disabling for:", userData.emailOrMobile);
+      const res = await api.post("/user/disable-2fa", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Disable 2FA] Response:", res.data);
+      setUserData({ ...userData, twoFAEnabled: false });
+      showPopup("success", res.data.message || "2FA disabled successfully");
+    } catch (err) {
+      console.error("[Disable 2FA] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to disable 2FA");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSetup2FA = async () => {
     setLoading(true);
     try {
@@ -395,7 +417,6 @@ const UserDashboard = () => {
     }
   };
 
-  // New 2FA Verification Handler
   const handleVerify2FA = async () => {
     if (!twoFACode.trim()) {
       showPopup("error", "2FA code is required");
@@ -728,11 +749,26 @@ const UserDashboard = () => {
           />
         </div>
 
-        {/* New 2FA Section */}
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Two-Factor Authentication</h3>
           {userData.twoFAEnabled ? (
-            <p className="text-sm text-green-600">2FA is enabled for your account.</p>
+            <div className="space-y-4">
+              <p className="text-sm text-green-600">2FA is enabled for your account.</p>
+              <button
+                onClick={handleDisable2FA}
+                disabled={loading}
+                className="bg-gradient-to-r from-red-600 to-orange-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-red-700 hover:to-orange-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4" />
+                    <span>Disable 2FA</span>
+                  </>
+                )}
+              </button>
+            </div>
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-gray-600">Enable Google Authenticator for enhanced security.</p>
@@ -852,6 +888,11 @@ const UserDashboard = () => {
                   type="text"
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Backspace" && !digit && index > 0) {
+                      document.getElementById(`otp-input-${index - 1}`).focus();
+                    }
+                  }}
                   maxLength={1}
                   className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
                 />
@@ -873,7 +914,6 @@ const UserDashboard = () => {
         </div>
       )}
 
-      {/* New 2FA Popup */}
       {show2FAPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-4 w-80">
@@ -1045,7 +1085,7 @@ const UserDashboard = () => {
                           <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
                         ) : (
                           <>
-                            <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                             <span>Reset Password</span>
                           </>
                         )}
@@ -1061,31 +1101,23 @@ const UserDashboard = () => {
                       setConfirmPassword("");
                       setOtp(["", "", "", "", "", ""]);
                     }}
-                    className="w-full text-sm text-blue-600 hover:text-blue-800 mt-2 sm:mt-4"
+                    className="w-full text-sm text-blue-600 hover:text-blue-800 mt-3 sm:mt-4"
                   >
                     Back to Login
                   </button>
                 </div>
               ) : (
                 <div className="space-y-4 sm:space-y-6">
-                  <div className="flex justify-center space-x-2 sm:space-x-4 mb-4 sm:mb-6">
+                  <div className="flex justify-center space-x-4 mb-4">
                     <button
                       onClick={() => setLoginMethod("otp")}
-                      className={`flex-1 py-2 sm:py-2.5 font-semibold rounded-lg sm:rounded-xl transition-all transform hover:scale-105 text-sm sm:text-base ${
-                        loginMethod === "otp"
-                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
+                      className={`px-4 py-2 font-semibold rounded-lg sm:rounded-xl transition-all ${loginMethod === "otp" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"}`}
                     >
                       OTP Login
                     </button>
                     <button
                       onClick={() => setLoginMethod("password")}
-                      className={`flex-1 py-2 sm:py-2.5 font-semibold rounded-lg sm:rounded-xl transition-all transform hover:scale-105 text-sm sm:text-base ${
-                        loginMethod === "password"
-                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                      }`}
+                      className={`px-4 py-2 font-semibold rounded-lg sm:rounded-xl transition-all ${loginMethod === "password" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"}`}
                     >
                       Password Login
                     </button>
@@ -1148,11 +1180,11 @@ const UserDashboard = () => {
                         {loginMethod === "otp" ? (
                           <>
                             <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span>Request OTP</span>
+                            <span>Send OTP</span>
                           </>
                         ) : (
                           <>
-                            <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
                             <span>Login</span>
                           </>
                         )}
@@ -1162,14 +1194,14 @@ const UserDashboard = () => {
 
                   <button
                     onClick={() => setShowForgotPassword(true)}
-                    className="w-full text-sm text-blue-600 hover:text-blue-800"
+                    className="w-full text-sm text-blue-600 hover:text-blue-800 mt-3 sm:mt-4"
                   >
                     Forgot Password?
                   </button>
 
-                  <p className="text-center text-sm text-gray-600">
+                  <p className="text-center text-sm text-gray-600 mt-3 sm:mt-4">
                     New to Shopymol?{" "}
-                    <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold">
+                    <Link to="/signup" className="text-blue-600 hover:text-blue-800 font-semibold">
                       Create an account
                     </Link>
                   </p>
@@ -1179,11 +1211,11 @@ const UserDashboard = () => {
           </div>
         </div>
       ) : (
-        <div>
-          <NavBar />
-          <div className="flex">
-            <Sidebar />
-            <div className="flex-1 p-4 sm:p-6 md:p-8">
+        <div className="flex">
+          <Sidebar />
+          <div className="flex-1">
+            <NavBar />
+            <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto">
               <PersonalInfoSection />
             </div>
           </div>

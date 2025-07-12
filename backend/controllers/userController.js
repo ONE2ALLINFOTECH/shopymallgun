@@ -1,9 +1,11 @@
-const User = require("../models/User");
+const mongoose = require("mongoose");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
-const speakeasy = require("speakeasy"); // Added for 2FA
-const qrcode = require("qrcode"); // Added for QR code generation
+const speakeasy = require("speakeasy");
+const qrcode = require("qrcode");
+
+const User = require("../models/User");
 
 const sendOTP = async (req, res) => {
   const { emailOrMobile, isRegistration = false } = req.body;
@@ -269,7 +271,7 @@ const getUserProfile = async (req, res) => {
       gender: user.gender,
       address: user.address,
       isVerified: user.isVerified,
-      twoFAEnabled: user.twoFAEnabled, // Added to return 2FA status
+      twoFAEnabled: user.twoFAEnabled,
     });
   } catch (err) {
     console.error("❌ Error fetching profile:", err.message);
@@ -535,7 +537,6 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-// New 2FA Setup Function
 const setup2FA = async (req, res) => {
   const { emailOrMobile } = req.body;
   let normalizedInput = emailOrMobile;
@@ -565,6 +566,11 @@ const setup2FA = async (req, res) => {
       issuer: "Shopymol",
     });
 
+    if (!secret.otpauth_url) {
+      console.error("❌ 2FA secret generation failed: otpauth_url is undefined");
+      return res.status(500).json({ error: "Failed to generate 2FA secret" });
+    }
+
     user.twoFASecret = secret.base32;
     await user.save();
 
@@ -581,7 +587,6 @@ const setup2FA = async (req, res) => {
   }
 };
 
-// New 2FA Verification Function
 const verify2FA = async (req, res) => {
   const { emailOrMobile, token } = req.body;
   let normalizedInput = emailOrMobile;
@@ -610,7 +615,7 @@ const verify2FA = async (req, res) => {
       secret: user.twoFASecret,
       encoding: "base32",
       token,
-      window: 1, // Allow 30-second window for clock drift
+      window: 1,
     });
 
     if (!verified) {
@@ -630,6 +635,41 @@ const verify2FA = async (req, res) => {
   }
 };
 
+const disable2FA = async (req, res) => {
+  const { emailOrMobile } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+
+  try {
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!user.twoFAEnabled) {
+      return res.status(400).json({ error: "2FA is not enabled" });
+    }
+
+    user.twoFASecret = null;
+    user.twoFAEnabled = false;
+    await user.save();
+
+    res.json({ success: true, message: "2FA disabled successfully" });
+  } catch (err) {
+    console.error("❌ Error disabling 2FA:", err.message);
+    res.status(500).json({ error: "Failed to disable 2FA" });
+  }
+};
+
 module.exports = {
   sendOTP,
   verifyOTP,
@@ -644,6 +684,7 @@ module.exports = {
   getUserProfile,
   deactivateAccount,
   deleteAccount,
-  setup2FA, // Added
-  verify2FA, // Added
+  setup2FA,
+  verify2FA,
+  disable2FA,
 };
