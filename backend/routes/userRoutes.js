@@ -1,4 +1,3 @@
-
 const express = require("express");
 const router = express.Router();
 const {
@@ -15,29 +14,26 @@ const {
   getUserProfile,
   deactivateAccount,
   deleteAccount,
-  setup2FA,
+  send2FAOTP,
   verify2FA,
+  disable2FA,
 } = require("../controllers/userController");
 
-// Registration and Profile Routes
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 router.post("/register", registerUser);
 router.post("/profile-info", saveProfileInfo);
 router.get("/profile", getUserProfile);
-
-// Login and Forgot Password Routes
 router.post("/login", loginUser);
 router.post("/forgot/send-otp", sendForgotPasswordOTP);
 router.post("/forgot/verify-otp", verifyForgotPasswordOTP);
 router.post("/forgot/reset-password", resetPassword);
 router.post("/send-email-otp", sendEmailOTP);
 router.post("/verify-email-otp", verifyEmailOTP);
-
-// New Routes for Deactivate and Delete
+router.post("/send-2fa-otp", send2FAOTP);
+router.post("/api/verify-2fa", verify2FA);
+router.post("/disable-2fa", disable2FA);
 router.post("/deactivate", deactivateAccount);
 router.post("/delete", deleteAccount);
-router.post("/setup-2fa", setup2FA);
-router.post("/verify-2fa", verify2FA);
 
 module.exports = router;
