@@ -87,7 +87,6 @@ const UserDashboard = () => {
   };
 
   const showPopup = (type, message) => {
-    console.log(`[Popup] ${type}: ${message}`);
     setPopup({ show: true, type, message });
     setTimeout(() => setPopup({ show: false, type: "", message: "" }), 3000);
   };
@@ -103,19 +102,17 @@ const UserDashboard = () => {
 
   const handleSendOTP = async () => {
     if (!emailOrMobile.trim()) {
-      showPopup("error", "Email ya mobile number daal, bhai!");
+      showPopup("error", "Email or mobile number is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Send OTP] Requesting OTP for:", emailOrMobile);
       const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
-      console.log("[Send OTP] Response:", res.data);
       if (res.data.error && res.data.error.includes("not registered")) {
         showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
-        showPopup("success", "OTP bhej diya gaya!");
+        showPopup("success", res.data.message || "OTP sent successfully");
         setOtpSent(true);
         setTimer(120);
         setCanResend(false);
@@ -123,8 +120,7 @@ const UserDashboard = () => {
         setOtp(["", "", "", "", "", ""]);
       }
     } catch (err) {
-      console.error("[Send OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP bhejne mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to send OTP");
     } finally {
       setLoading(false);
     }
@@ -133,12 +129,11 @@ const UserDashboard = () => {
   const handleVerifyOTP = async () => {
     const otpValue = otp.join("");
     if (!emailOrMobile.trim() || !otpValue || otpValue.length !== 6) {
-      showPopup("error", "Email/mobile aur 6-digit OTP daal");
+      showPopup("error", "Email/mobile and 6-digit OTP are required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify OTP] Payload:", { emailOrMobile, otp: otpValue });
       await api.post("/user/verify-otp", { emailOrMobile, otp: otpValue });
       setOtp(["", "", "", "", "", ""]);
       setShowOtpPopup(false);
@@ -154,11 +149,10 @@ const UserDashboard = () => {
           emailOrMobile: res.data.emailOrMobile || emailOrMobile
         });
         setIsLoggedIn(true);
-        showPopup("success", "Login ho gaya!");
+        showPopup("success", "Login successful!");
       }
     } catch (err) {
-      console.error("[Verify OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP galat hai, sahi OTP daal");
+      showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
     } finally {
       setLoading(false);
     }
@@ -166,12 +160,11 @@ const UserDashboard = () => {
 
   const handlePasswordLogin = async () => {
     if (!emailOrMobile.trim() || !password.trim()) {
-      showPopup("error", "Email/mobile aur password daal");
+      showPopup("error", "Email/mobile and password are required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Password Login] Attempting login for:", emailOrMobile);
       const res = await api.post("/user/login", { emailOrMobile, password });
       if (res.data.is2FAEnabled) {
         setIs2FAEnabled(true);
@@ -185,11 +178,10 @@ const UserDashboard = () => {
           emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
         });
         setIsLoggedIn(true);
-        showPopup("success", "Login ho gaya!");
+        showPopup("success", "Login successful!");
       }
     } catch (err) {
-      console.error("[Password Login] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Login fail hua");
+      showPopup("error", err.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
     }
@@ -198,18 +190,15 @@ const UserDashboard = () => {
   const handleSend2FAOTP = async () => {
     setLoading(true);
     try {
-      console.log("[Send 2FA OTP] Sending 2FA OTP to:", emailOrMobile || userData.emailOrMobile);
       const res = await api.post("/user/send-2fa-otp", { emailOrMobile: emailOrMobile || userData.emailOrMobile });
-      console.log("[Send 2FA OTP] Response:", res.data);
-      showPopup("success", "2FA OTP bhej diya gaya!");
+      showPopup("success", res.data.message || "2FA OTP sent successfully");
       setShow2FAPopup(true);
       setTimer(120);
       setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
       if (res.data.qr) setQrCode(res.data.qr);
     } catch (err) {
-      console.error("[Send 2FA OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "2FA OTP bhejne mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to send 2FA OTP");
     } finally {
       setLoading(false);
     }
@@ -218,17 +207,15 @@ const UserDashboard = () => {
   const handleSetup2FA = async () => {
     setLoading(true);
     try {
-      console.log("[Setup 2FA] Requesting QR code for:", userData.emailOrMobile);
       const res = await api.post("/user/send-2fa-otp", { emailOrMobile: userData.emailOrMobile });
       setQrCode(res.data.qr);
       setShow2FASetup(true);
       setOtp(["", "", "", "", "", ""]);
       setTimer(120);
       setCanResend(false);
-      showPopup("success", "2FA OTP bheja gaya. QR code scan karo aur OTP daal!");
+      showPopup("success", "2FA OTP sent. Scan the QR code and enter the OTP!");
     } catch (err) {
-      console.error("[Setup 2FA] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "2FA setup mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to setup 2FA");
     } finally {
       setLoading(false);
     }
@@ -237,14 +224,12 @@ const UserDashboard = () => {
   const handleVerify2FA = async () => {
     const otpValue = otp.join("");
     if (!otpValue || otpValue.length !== 6) {
-      showPopup("error", "6-digit 2FA OTP daal, bhai!");
+      showPopup("error", "6-digit 2FA OTP is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify 2FA] Verifying for:", emailOrMobile || userData.emailOrMobile, "OTP:", otpValue);
       const res = await api.post("/api/verify-2fa", { emailOrMobile: emailOrMobile || userData.emailOrMobile, otp: otpValue });
-      console.log("[Verify 2FA] Response:", res.data);
       setIs2FAEnabled(true);
       setOtpVerified(true);
       setShow2FAPopup(false);
@@ -261,10 +246,9 @@ const UserDashboard = () => {
         });
         setIsLoggedIn(true);
       }
-      showPopup("success", "2FA verify ho gaya!");
+      showPopup("success", "2FA verified successfully!");
     } catch (err) {
-      console.error("[Verify 2FA] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "2FA OTP galat hai, sahi OTP daal");
+      showPopup("error", err.response?.data?.error || "Please enter the correct 2FA OTP");
     } finally {
       setLoading(false);
     }
@@ -273,13 +257,11 @@ const UserDashboard = () => {
   const handleDisable2FA = async () => {
     setLoading(true);
     try {
-      console.log("[Disable 2FA] Disabling for:", userData.emailOrMobile);
       await api.post("/user/disable-2fa", { emailOrMobile: userData.emailOrMobile });
       setIs2FAEnabled(false);
-      showPopup("success", "2FA band kar diya gaya!");
+      showPopup("success", "2FA disabled successfully!");
     } catch (err) {
-      console.error("[Disable 2FA] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "2FA band karne mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to disable 2FA");
     } finally {
       setLoading(false);
     }
@@ -288,17 +270,14 @@ const UserDashboard = () => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
-      console.log("[Resend OTP] Resending OTP to:", emailOrMobile || userData.emailOrMobile);
       const endpoint = show2FAPopup || show2FASetup ? "/user/send-2fa-otp" : showForgotPassword ? "/user/forgot/send-otp" : "/user/send-otp";
       const res = await api.post(endpoint, { emailOrMobile: emailOrMobile || userData.emailOrMobile, isRegistration: false });
-      console.log("[Resend OTP] Response:", res.data);
-      showPopup("success", "OTP dobara bhej diya!");
+      showPopup("success", "OTP resent successfully");
       setTimer(120);
       setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
     } catch (err) {
-      console.error("[Resend OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP dobara bhejne mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to resend OTP");
     } finally {
       setLoading(false);
     }
@@ -306,27 +285,24 @@ const UserDashboard = () => {
 
   const handleForgotPasswordOTP = async () => {
     if (!emailOrMobile.trim()) {
-      showPopup("error", "Email ya mobile number daal, bhai!");
+      showPopup("error", "Email or mobile number is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Forgot Password OTP] Sending OTP to:", emailOrMobile);
       const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
-      console.log("[Forgot Password OTP] Response:", res.data);
       if (res.data.error && res.data.error.includes("not registered")) {
         showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
-        showPopup("success", "OTP bhej diya gaya!");
+        showPopup("success", res.data.message || "OTP sent successfully");
         setOtpSent(true);
         setTimer(120);
         setCanResend(false);
         setShowOtpPopup(true);
       }
     } catch (err) {
-      console.error("[Forgot Password OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP bhejne mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to send OTP");
     } finally {
       setLoading(false);
     }
@@ -335,21 +311,18 @@ const UserDashboard = () => {
   const handleVerifyForgotPasswordOTP = async () => {
     const otpValue = otp.join("");
     if (!otpValue || otpValue.length !== 6) {
-      showPopup("error", "6-digit OTP daal, bhai!");
+      showPopup("error", "6-digit OTP is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify Forgot Password OTP] Verifying for:", emailOrMobile, "OTP:", otpValue);
       const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp: otpValue });
-      console.log("[Verify Forgot Password OTP] Response:", res.data);
-      showPopup("success", "OTP verify ho gaya!");
+      showPopup("success", res.data.message || "OTP verified successfully");
       setOtpVerified(true);
       setShowOtpPopup(false);
       setOtp(["", "", "", "", "", ""]);
     } catch (err) {
-      console.error("[Verify Forgot Password OTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "OTP galat hai, sahi OTP daal");
+      showPopup("error", err.response?.data?.error || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -357,19 +330,17 @@ const UserDashboard = () => {
 
   const handleResetPassword = async () => {
     if (!newPassword.trim() || !confirmPassword.trim()) {
-      showPopup("error", "Dono password fields bharo!");
+      showPopup("error", "Both password fields are required");
       return;
     }
     if (newPassword !== confirmPassword) {
-      showPopup("error", "Password match nahi karte!");
+      showPopup("error", "Passwords do not match");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Reset Password] Resetting password for:", emailOrMobile);
       const res = await api.post("/user/forgot/reset-password", { emailOrMobile, password: newPassword });
-      console.log("[Reset Password] Response:", res.data);
-      showPopup("success", "Password reset ho gaya!");
+      showPopup("success", res.data.message || "Password reset successfully");
       setTimeout(() => {
         setShowForgotPassword(false);
         setNewPassword("");
@@ -378,15 +349,13 @@ const UserDashboard = () => {
         setOtpVerified(false);
       }, 1500);
     } catch (err) {
-      console.error("[Reset Password] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Password reset mein problem hui");
+      showPopup("error", err.response?.data?.error || "Password reset failed");
     } finally {
       setLoading(false);
     }
   };
 
   const handleLogout = () => {
-    console.log("[Logout] Logging out user:", userData?.emailOrMobile);
     setIsLoggedIn(false);
     setEmailOrMobile("");
     setOtp(["", "", "", "", "", ""]);
@@ -403,7 +372,7 @@ const UserDashboard = () => {
     setShowForgotPassword(false);
     setTimer(120);
     setCanResend(false);
-    showPopup("success", "Logout ho gaya!");
+    showPopup("success", "Logged out successfully");
   };
 
   const handleOtpChange = (index, value) => {
@@ -417,19 +386,17 @@ const UserDashboard = () => {
 
   const handleSaveProfile = async () => {
     if (!editData.firstName || !editData.emailOrMobile) {
-      showPopup("error", "First name aur email/mobile daal!");
+      showPopup("error", "First name and email/mobile are required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Save Profile] Updating profile for:", userData.emailOrMobile);
       const res = await api.post("/user/profile-info", {
         emailOrMobile: userData.emailOrMobile,
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
       });
-      console.log("[Save Profile] Response:", res.data);
       setUserData({
         firstName: editData.firstName,
         lastName: editData.lastName,
@@ -437,44 +404,37 @@ const UserDashboard = () => {
         emailOrMobile: userData.emailOrMobile
       });
       setIsEditing(false);
-      showPopup("success", "Profile update ho gaya!");
+      showPopup("success", "Profile updated successfully");
     } catch (err) {
-      console.error("[Save Profile] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Profile update mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to update profile");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeactivateAccount = async () => {
-    if (!window.confirm("Account deactivate karna hai kya?")) return;
+    if (!window.confirm("Are you sure you want to deactivate your account?")) return;
     setLoading(true);
     try {
-      console.log("[Deactivate Account] Deactivating for:", userData.emailOrMobile);
-      const res = await api.post("/user/deactivate", { emailOrMobile: userData.emailOrMobile });
-      console.log("[Deactivate Account] Response:", res.data);
+      await api.post("/user/deactivate", { emailOrMobile: userData.emailOrMobile });
       handleLogout();
-      showPopup("success", "Account deactivate ho gaya!");
+      showPopup("success", "Account deactivated successfully");
     } catch (err) {
-      console.error("[Deactivate Account] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Account deactivate mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to deactivate account");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (!window.confirm("Account delete karna hai? Ye wapas nahi hoga!")) return;
+    if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
     setLoading(true);
     try {
-      console.log("[Delete Account] Deleting for:", userData.emailOrMobile);
-      const res = await api.post("/user/delete", { emailOrMobile: userData.emailOrMobile });
-      console.log("[Delete Account] Response:", res.data);
+      await api.post("/user/delete", { emailOrMobile: userData.emailOrMobile });
       handleLogout();
-      showPopup("success", "Account delete ho gaya!");
+      showPopup("success", "Account deleted successfully");
     } catch (err) {
-      console.error("[Delete Account] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Account delete mein problem hui");
+      showPopup("error", err.response?.data?.error || "Failed to delete account");
     } finally {
       setLoading(false);
     }
@@ -519,10 +479,7 @@ const UserDashboard = () => {
     <div className="bg-blue-600 text-white">
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center space-x-4">
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="md:hidden"
-          >
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden">
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex items-center space-x-2">
@@ -530,7 +487,6 @@ const UserDashboard = () => {
             <div className="text-xs text-yellow-300">Explore</div>
           </div>
         </div>
-
         <div className="flex-1 max-w-lg mx-4 hidden md:block">
           <div className="relative">
             <input
@@ -541,7 +497,6 @@ const UserDashboard = () => {
             <Search className="absolute right-3 top-2.5 w-5 h-5 text-blue-600" />
           </div>
         </div>
-
         <div className="flex items-center space-x-4">
           <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
             <span className="hidden md:block">{userData?.firstName || "User"}</span>
@@ -569,7 +524,6 @@ const UserDashboard = () => {
               <p className="font-semibold">{userData?.firstName || "User"} {userData?.lastName || ""}</p>
             </div>
           </div>
-
           <nav className="space-y-1">
             {sidebarItems.map((item, index) => (
               <div key={index}>
@@ -593,7 +547,6 @@ const UserDashboard = () => {
               </div>
             ))}
           </nav>
-
           <div className="mt-8 pt-4 border-t">
             <div className="text-sm text-gray-600 mb-2">Frequently Visited:</div>
             <div className="space-y-1">
@@ -601,7 +554,6 @@ const UserDashboard = () => {
               <Link to="/help" className="text-sm text-gray-500 hover:text-blue-600">Help Center</Link>
             </div>
           </div>
-
           <button
             onClick={handleLogout}
             className="w-full mt-6 flex items-center justify-center space-x-2 p-2 border border-gray-300 rounded hover:bg-gray-50"
@@ -618,7 +570,7 @@ const UserDashboard = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-lg p-4 w-80">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-blue-600">2FA Setup Karo</h2>
+          <h2 className="text-lg font-semibold text-blue-600">2FA Setup</h2>
           <button
             onClick={() => {
               setShow2FASetup(false);
@@ -630,9 +582,9 @@ const UserDashboard = () => {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-sm text-gray-600 mb-2">Is QR code ko authenticator app se scan karo:</p>
+        <p className="text-sm text-gray-600 mb-2">Scan this QR code with your authenticator app:</p>
         {qrCode && <img src={qrCode} alt="2FA QR Code" className="w-full mb-2" />}
-        <p className="text-sm text-gray-600 mb-2">6-digit OTP daal jo app mein dikhega:</p>
+        <p className="text-sm text-gray-600 mb-2">Enter the 6-digit OTP from the app:</p>
         <div className="flex justify-center space-x-2 mb-2">
           {otp.map((digit, index) => (
             <input
@@ -647,7 +599,7 @@ const UserDashboard = () => {
           ))}
         </div>
         <p className="text-sm text-blue-500 mb-2 text-center">
-          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer khatam! Resend karo"}
+          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer expired! Resend OTP"}
         </p>
         {canResend && (
           <button
@@ -655,7 +607,7 @@ const UserDashboard = () => {
             disabled={loading}
             className="w-full text-sm text-orange-500 hover:text-orange-700"
           >
-            2FA OTP Dobara Bhejo
+            Resend 2FA OTP
           </button>
         )}
         <button
@@ -680,13 +632,13 @@ const UserDashboard = () => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-lg p-4 w-80">
         <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-blue-600">2FA OTP Verify Karo</h2>
+          <h2 className="text-lg font-semibold text-blue-600">Verify 2FA OTP</h2>
           <button onClick={() => { setShow2FAPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
             <X className="w-5 h-5" />
           </button>
         </div>
         <p className="text-sm text-gray-600 mb-2">
-          {emailOrMobile || userData.emailOrMobile} pe bheja gaya 2FA OTP daal:
+          Enter 2FA OTP sent to {emailOrMobile || userData.emailOrMobile}
         </p>
         <div className="flex justify-center space-x-2 mb-2">
           {otp.map((digit, index) => (
@@ -702,7 +654,7 @@ const UserDashboard = () => {
           ))}
         </div>
         <p className="text-sm text-blue-500 mb-2 text-center">
-          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer khatam! Resend karo"}
+          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer expired! Resend OTP"}
         </p>
         {canResend && (
           <button
@@ -710,7 +662,7 @@ const UserDashboard = () => {
             disabled={loading}
             className="w-full text-sm text-orange-500 hover:text-orange-700"
           >
-            2FA OTP Dobara Bhejo
+            Resend 2FA OTP
           </button>
         )}
         <button
@@ -736,14 +688,14 @@ const UserDashboard = () => {
       <div className="bg-white rounded-lg shadow-lg p-4 w-80">
         <div className="flex justify-between items-center mb-2">
           <h2 className="text-lg font-semibold text-blue-600">
-            {showForgotPassword ? "Password Reset OTP" : "OTP Verify Karo"}
+            {showForgotPassword ? "Password Reset OTP" : "Verify OTP"}
           </h2>
           <button onClick={() => { setShowOtpPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
             <X className="w-5 h-5" />
           </button>
         </div>
         <p className="text-sm text-gray-600 mb-2">
-          {emailOrMobile} pe bheja gaya OTP daal:
+          Enter OTP sent to {emailOrMobile}
         </p>
         <div className="flex justify-center space-x-2 mb-2">
           {otp.map((digit, index) => (
@@ -759,7 +711,7 @@ const UserDashboard = () => {
           ))}
         </div>
         <p className="text-sm text-blue-500 mb-2 text-center">
-          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer khatam! Resend karo"}
+          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer expired! Resend OTP"}
         </p>
         {canResend && (
           <button
@@ -767,7 +719,7 @@ const UserDashboard = () => {
             disabled={loading}
             className="w-full text-sm text-orange-500 hover:text-orange-700"
           >
-            OTP Dobara Bhejo
+            Resend OTP
           </button>
         )}
       </div>
@@ -811,7 +763,6 @@ const UserDashboard = () => {
           </div>
         )}
       </div>
-
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -835,7 +786,6 @@ const UserDashboard = () => {
             />
           </div>
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
           <div className="flex space-x-4">
@@ -877,7 +827,6 @@ const UserDashboard = () => {
             </label>
           </div>
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
           <input
@@ -896,7 +845,6 @@ const UserDashboard = () => {
             readOnly={!isEditing}
           />
         </div>
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
           <input
@@ -915,7 +863,6 @@ const UserDashboard = () => {
             readOnly={!isEditing}
           />
         </div>
-
         <div className="border-t pt-4">
           <div className="flex items-center justify-between mb-2">
             <label className="block text-sm font-medium text-gray-700">Two-Factor Authentication</label>
@@ -945,7 +892,6 @@ const UserDashboard = () => {
             </span>
           </p>
         </div>
-
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Account Actions</h3>
           <div className="flex space-x-4">
@@ -988,10 +934,9 @@ const UserDashboard = () => {
           Password Login
         </button>
       </div>
-
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email ya Mobile Number</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Email or Mobile Number</label>
           <div className="relative">
             <Mail className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
             <input
@@ -999,11 +944,10 @@ const UserDashboard = () => {
               value={emailOrMobile}
               onChange={(e) => setEmailOrMobile(e.target.value)}
               className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-              placeholder="Email ya mobile number daal"
+              placeholder="Enter email or mobile number"
             />
           </div>
         </div>
-
         {loginMethod === "password" && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
@@ -1014,7 +958,7 @@ const UserDashboard = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                placeholder="Password daal"
+                placeholder="Enter password"
               />
               <button
                 onClick={() => setShowPassword(!showPassword)}
@@ -1025,7 +969,6 @@ const UserDashboard = () => {
             </div>
           </div>
         )}
-
         <button
           onClick={loginMethod === "otp" ? handleSendOTP : handlePasswordLogin}
           disabled={loading}
@@ -1036,29 +979,32 @@ const UserDashboard = () => {
           ) : (
             <>
               <Send className="w-5 h-5" />
-              <span>{loginMethod === "otp" ? "OTP Bhejo" : "Login"}</span>
+              <span>{loginMethod === "otp" ? "Send OTP" : "Login"}</span>
             </>
           )}
         </button>
-
         <button
           onClick={() => setShowForgotPassword(true)}
           className="w-full text-blue-600 hover:text-blue-800 text-sm"
         >
-          Password Bhool Gaye?
+          Forgot Password?
         </button>
+        <div className="text-center">
+          <span className="text-sm text-gray-600">New to Shopymol? </span>
+          <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold text-sm">Create Account</Link>
+        </div>
       </div>
     </div>
   );
 
   const ForgotPasswordSection = () => (
     <div className="bg-white rounded shadow p-6">
-      <h1 className="text-lg font-semibold text-gray-800 mb-4">Password Reset Karo</h1>
+      <h1 className="text-lg font-semibold text-gray-800 mb-4">Reset Password</h1>
       <div className="space-y-4">
         {!otpVerified ? (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email ya Mobile Number</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email or Mobile Number</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
                 <input
@@ -1066,7 +1012,7 @@ const UserDashboard = () => {
                   value={emailOrMobile}
                   onChange={(e) => setEmailOrMobile(e.target.value)}
                   className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                  placeholder="Email ya mobile number daal"
+                  placeholder="Enter email or mobile number"
                 />
               </div>
             </div>
@@ -1080,7 +1026,7 @@ const UserDashboard = () => {
               ) : (
                 <>
                   <Send className="w-5 h-5" />
-                  <span>OTP Bhejo</span>
+                  <span>Send OTP</span>
                 </>
               )}
             </button>
@@ -1088,7 +1034,7 @@ const UserDashboard = () => {
         ) : (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Naya Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
                 <input
@@ -1096,7 +1042,7 @@ const UserDashboard = () => {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                  placeholder="Naya password daal"
+                  placeholder="Enter new password"
                 />
                 <button
                   onClick={() => setShowNewPassword(!showNewPassword)}
@@ -1107,7 +1053,7 @@ const UserDashboard = () => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Password Confirm Karo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
                 <input
@@ -1115,7 +1061,7 @@ const UserDashboard = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                  placeholder="Password confirm karo"
+                  placeholder="Confirm new password"
                 />
                 <button
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -1125,33 +1071,35 @@ const UserDashboard = () => {
                 </button>
               </div>
             </div>
-            <button
-              onClick={handleResetPassword}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <CheckCircle className="w-5 h-5" />
-                  <span>Password Reset Karo</span>
-                </>
-              )}
-            </button>
-            <button
-              onClick={() => {
-                setShowForgotPassword(false);
-                setOtpSent(false);
-                setOtpVerified(false);
-                setOtp(["", "", "", "", "", ""]);
-                setNewPassword("");
-                setConfirmPassword("");
-              }}
-              className="w-full text-blue-600 hover:text-blue-800 text-sm"
-            >
-              Wapas Login Pe Jao
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleResetPassword}
+                disabled={loading}
+                className="flex-1 bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Reset Password</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowForgotPassword(false);
+                  setOtpSent(false);
+                  setOtpVerified(false);
+                  setOtp(["", "", "", "", "", ""]);
+                  setNewPassword("");
+                  setConfirmPassword("");
+                }}
+                className="flex-1 bg-gray-500 text-white py-2 rounded font-semibold hover:bg-gray-600"
+              >
+                Back to Login
+              </button>
+            </div>
           </>
         )}
       </div>
@@ -1178,13 +1126,10 @@ const UserDashboard = () => {
           </div>
         </div>
       )}
-
       <NavBar />
-
       {show2FASetup && <Setup2FAPopup />}
       {show2FAPopup && <Verify2FAPopup />}
       {showOtpPopup && <OtpPopup />}
-
       <div className="container mx-auto p-4 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
         <div className="md:w-1/4">
           {isLoggedIn && <Sidebar />}
