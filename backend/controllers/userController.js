@@ -650,17 +650,20 @@ const verify2FA = async (req, res) => {
     });
 
     if (!user || !user.twoFASecret) {
-      return res.status(400).json({ error: "2FA not setup for this user" });
+      return res.status(400).json({ error: "2FA is not setup for this user" });
     }
+
+    console.log("[Verify 2FA] Verifying OTP:", otp, "for secret:", user.twoFASecret);
 
     const verified = speakeasy.totp.verify({
       secret: user.twoFASecret,
       encoding: "base32",
       token: otp,
-      window: 1,
+      window: 2, // Increased window to allow slight time sync issues
     });
 
     if (!verified) {
+      console.log("[Verify 2FA] OTP verification failed for:", normalizedInput);
       return res.status(401).json({ error: "Invalid or expired 2FA OTP" });
     }
 
