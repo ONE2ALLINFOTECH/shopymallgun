@@ -19,7 +19,7 @@ import {
   Lock,
   Eye,
   EyeOff,
-  Edit,
+  Edit3,
 } from "lucide-react";
 import QRCode from "react-qr-code";
 import api from "../api/api";
