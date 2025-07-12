@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
-  Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, User, Package, CreditCard,
+  Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
   ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
-import api from "../api/api";
-import { Link } from "react-router-dom";
+import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
+import { Link } from "react-router-dom"; // Import Link from react-router-dom
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
@@ -27,10 +27,6 @@ const UserDashboard = () => {
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [show2FAPopup, setShow2FAPopup] = useState(false);
-  const [show2FASetup, setShow2FASetup] = useState(false);
-  const [qrCode, setQrCode] = useState("");
-  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     firstName: "",
@@ -41,44 +37,33 @@ const UserDashboard = () => {
 
   useEffect(() => {
     let interval;
-    if ((otpSent || show2FAPopup || show2FASetup) && !otpVerified && timer > 0) {
+    if (otpSent && !otpVerified && timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
             setCanResend(true);
-            clearInterval(interval);
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
     }
-    return () => clearInterval(interval);
-  }, [otpSent, show2FAPopup, show2FASetup, otpVerified, timer]);
-
-  useEffect(() => {
-    if (otp.join("").length === 6 && !loading) {
-      if (show2FAPopup || show2FASetup) {
-        handleVerify2FA();
-      } else if (showForgotPassword) {
-        handleVerifyForgotPasswordOTP();
-      } else {
-        handleVerifyOTP();
-      }
+    if (otpSent && !otpVerified && otp.join("").length === 6) {
+      handleVerifyOTP();
     }
-  }, [otp, loading, show2FAPopup, show2FASetup, showForgotPassword]);
+    return () => clearInterval(interval);
+  }, [otpSent, otpVerified, timer, otp]);
 
   useEffect(() => {
-    if (isLoggedIn && userData.emailOrMobile) {
+    if (isLoggedIn) {
       setEditData({
         firstName: userData.firstName || "",
         lastName: userData.lastName || "",
         gender: userData.gender || "",
         emailOrMobile: userData.emailOrMobile || ""
       });
-      fetch2FAStatus();
     }
-  }, [isLoggedIn, userData]);
+  }, [userData]);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -87,17 +72,9 @@ const UserDashboard = () => {
   };
 
   const showPopup = (type, message) => {
+    console.log(`[Popup] ${type}: ${message}`);
     setPopup({ show: true, type, message });
     setTimeout(() => setPopup({ show: false, type: "", message: "" }), 3000);
-  };
-
-  const fetch2FAStatus = async () => {
-    try {
-      const res = await api.get(`/user/profile?emailOrMobile=${userData.emailOrMobile}`);
-      setIs2FAEnabled(res.data.is2FAEnabled || false);
-    } catch (err) {
-      console.error("[Fetch 2FA Status] Error:", err.response?.data || err.message);
-    }
   };
 
   const handleSendOTP = async () => {
@@ -107,8 +84,10 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
+      console.log("[Send OTP] Requesting OTP for:", emailOrMobile);
       const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
-      if (res.data.error && res.data.error.includes("not registered")) {
+      console.log("[Send OTP] Response:", res.data);
+      if (res.data && res.data.error && res.data.error.includes("not registered")) {
         showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
@@ -117,41 +96,43 @@ const UserDashboard = () => {
         setTimer(120);
         setCanResend(false);
         setShowOtpPopup(true);
-        setOtp(["", "", "", "", "", ""]);
       }
     } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      console.error("[Send OTP] Error:", err.response?.data || err.message);
+      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+        setOtpSent(false);
+      } else {
+        showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyOTP = async () => {
-    const otpValue = otp.join("");
-    if (!emailOrMobile.trim() || !otpValue || otpValue.length !== 6) {
-      showPopup("error", "Email/mobile and 6-digit OTP are required");
+    if (!otp.join("").trim()) {
+      showPopup("error", "OTP is required");
       return;
     }
     setLoading(true);
     try {
-      await api.post("/user/verify-otp", { emailOrMobile, otp: otpValue });
-      setOtp(["", "", "", "", "", ""]);
-      setShowOtpPopup(false);
+      console.log("[Verify OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      await api.post("/user/verify-otp", { emailOrMobile, otp: otp.join("") });
+      const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
+      console.log("[Verify OTP] Profile Data:", res.data);
+      setUserData({
+        firstName: res.data.firstName || "",
+        lastName: res.data.lastName || "",
+        gender: res.data.gender || "",
+        emailOrMobile: res.data.emailOrMobile || emailOrMobile
+      });
       setOtpVerified(true);
-      if (is2FAEnabled) {
-        await handleSend2FAOTP();
-      } else {
-        const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
-        setUserData({
-          firstName: res.data.firstName || "",
-          lastName: res.data.lastName || "",
-          gender: res.data.gender || "",
-          emailOrMobile: res.data.emailOrMobile || emailOrMobile
-        });
-        setIsLoggedIn(true);
-        showPopup("success", "Login successful!");
-      }
+      setIsLoggedIn(true);
+      setShowOtpPopup(false);
+      showPopup("success", "OTP verified successfully");
     } catch (err) {
+      console.error("[Verify OTP] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
     } finally {
       setLoading(false);
@@ -165,103 +146,22 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
+      console.log("[Password Login] Attempting login for:", emailOrMobile);
       const res = await api.post("/user/login", { emailOrMobile, password });
-      if (res.data.is2FAEnabled) {
-        setIs2FAEnabled(true);
-        await handleSend2FAOTP();
-      } else {
-        const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
-        setUserData({
-          firstName: profileRes.data.firstName || "",
-          lastName: profileRes.data.lastName || "",
-          gender: profileRes.data.gender || "",
-          emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
-        });
-        setIsLoggedIn(true);
-        showPopup("success", "Login successful!");
-      }
+      console.log("[Password Login] Response:", res.data);
+      const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
+      console.log("[Password Login] Profile Data:", profileRes.data);
+      setUserData({
+        firstName: profileRes.data.firstName || "",
+        lastName: profileRes.data.lastName || "",
+        gender: profileRes.data.gender || "",
+        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
+      });
+      setIsLoggedIn(true);
+      showPopup("success", res.data.message || "Login successful");
     } catch (err) {
+      console.error("[Password Login] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Login failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSend2FAOTP = async () => {
-    setLoading(true);
-    try {
-      const res = await api.post("/user/send-2fa-otp", { emailOrMobile: emailOrMobile || userData.emailOrMobile });
-      showPopup("success", res.data.message || "2FA OTP sent successfully");
-      setShow2FAPopup(true);
-      setTimer(120);
-      setCanResend(false);
-      setOtp(["", "", "", "", "", ""]);
-      if (res.data.qr) setQrCode(res.data.qr);
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to send 2FA OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSetup2FA = async () => {
-    setLoading(true);
-    try {
-      const res = await api.post("/user/send-2fa-otp", { emailOrMobile: userData.emailOrMobile });
-      setQrCode(res.data.qr);
-      setShow2FASetup(true);
-      setOtp(["", "", "", "", "", ""]);
-      setTimer(120);
-      setCanResend(false);
-      showPopup("success", "2FA OTP sent. Scan the QR code and enter the OTP!");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to setup 2FA");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerify2FA = async () => {
-    const otpValue = otp.join("");
-    if (!otpValue || otpValue.length !== 6) {
-      showPopup("error", "6-digit 2FA OTP is required");
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await api.post("/api/verify-2fa", { emailOrMobile: emailOrMobile || userData.emailOrMobile, otp: otpValue });
-      setIs2FAEnabled(true);
-      setOtpVerified(true);
-      setShow2FAPopup(false);
-      setShow2FASetup(false);
-      setQrCode("");
-      setOtp(["", "", "", "", "", ""]);
-      if (!isLoggedIn) {
-        const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile || userData.emailOrMobile}`);
-        setUserData({
-          firstName: profileRes.data.firstName || "",
-          lastName: profileRes.data.lastName || "",
-          gender: profileRes.data.gender || "",
-          emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
-        });
-        setIsLoggedIn(true);
-      }
-      showPopup("success", "2FA verified successfully!");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Please enter the correct 2FA OTP");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisable2FA = async () => {
-    setLoading(true);
-    try {
-      await api.post("/user/disable-2fa", { emailOrMobile: userData.emailOrMobile });
-      setIs2FAEnabled(false);
-      showPopup("success", "2FA disabled successfully!");
-    } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to disable 2FA");
     } finally {
       setLoading(false);
     }
@@ -270,13 +170,15 @@ const UserDashboard = () => {
   const handleResendOTP = async () => {
     setLoading(true);
     try {
-      const endpoint = show2FAPopup || show2FASetup ? "/user/send-2fa-otp" : showForgotPassword ? "/user/forgot/send-otp" : "/user/send-otp";
-      const res = await api.post(endpoint, { emailOrMobile: emailOrMobile || userData.emailOrMobile, isRegistration: false });
+      console.log("[Resend OTP] Resending OTP to:", emailOrMobile);
+      const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
+      console.log("[Resend OTP] Response:", res.data);
       showPopup("success", "OTP resent successfully");
       setTimer(120);
       setCanResend(false);
       setOtp(["", "", "", "", "", ""]);
     } catch (err) {
+      console.error("[Resend OTP] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Failed to resend OTP");
     } finally {
       setLoading(false);
@@ -290,8 +192,10 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
+      console.log("[Forgot Password OTP] Sending OTP to:", emailOrMobile);
       const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
-      if (res.data.error && res.data.error.includes("not registered")) {
+      console.log("[Forgot Password OTP] Response:", res.data);
+      if (res.data && res.data.error && res.data.error.includes("not registered")) {
         showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
@@ -302,26 +206,32 @@ const UserDashboard = () => {
         setShowOtpPopup(true);
       }
     } catch (err) {
-      showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      console.error("[Forgot Password OTP] Error:", err.response?.data || err.message);
+      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
+        setOtpSent(false);
+      } else {
+        showPopup("error", err.response?.data?.error || "Failed to send OTP");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerifyForgotPasswordOTP = async () => {
-    const otpValue = otp.join("");
-    if (!otpValue || otpValue.length !== 6) {
-      showPopup("error", "6-digit OTP is required");
+    if (!otp.join("").trim()) {
+      showPopup("error", "OTP is required");
       return;
     }
     setLoading(true);
     try {
-      const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp: otpValue });
+      console.log("[Verify Forgot Password OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp: otp.join("") });
+      console.log("[Verify Forgot Password OTP] Response:", res.data);
       showPopup("success", res.data.message || "OTP verified successfully");
       setOtpVerified(true);
-      setShowOtpPopup(false);
-      setOtp(["", "", "", "", "", ""]);
     } catch (err) {
+      console.error("[Verify Forgot Password OTP] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "OTP verification failed");
     } finally {
       setLoading(false);
@@ -339,7 +249,9 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
+      console.log("[Reset Password] Resetting password for:", emailOrMobile);
       const res = await api.post("/user/forgot/reset-password", { emailOrMobile, password: newPassword });
+      console.log("[Reset Password] Response:", res.data);
       showPopup("success", res.data.message || "Password reset successfully");
       setTimeout(() => {
         setShowForgotPassword(false);
@@ -349,6 +261,7 @@ const UserDashboard = () => {
         setOtpVerified(false);
       }, 1500);
     } catch (err) {
+      console.error("[Reset Password] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Password reset failed");
     } finally {
       setLoading(false);
@@ -356,6 +269,7 @@ const UserDashboard = () => {
   };
 
   const handleLogout = () => {
+    console.log("[Logout] Logging out user:", userData?.emailOrMobile);
     setIsLoggedIn(false);
     setEmailOrMobile("");
     setOtp(["", "", "", "", "", ""]);
@@ -364,10 +278,6 @@ const UserDashboard = () => {
     setConfirmPassword("");
     setOtpSent(false);
     setOtpVerified(false);
-    setShow2FAPopup(false);
-    setShow2FASetup(false);
-    setQrCode("");
-    setIs2FAEnabled(false);
     setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
     setShowForgotPassword(false);
     setTimer(120);
@@ -377,7 +287,7 @@ const UserDashboard = () => {
 
   const handleOtpChange = (index, value) => {
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
+    newOtp[index] = value.slice(-1); // Only take the last character
     setOtp(newOtp);
     if (value && index < 5) {
       document.getElementById(`otp-input-${index + 1}`).focus();
@@ -391,21 +301,24 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
+      console.log("[Save Profile] Updating profile for:", emailOrMobile);
       const res = await api.post("/user/profile-info", {
-        emailOrMobile: userData.emailOrMobile,
+        emailOrMobile: userData.emailOrMobile, // Use original emailOrMobile for identification
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
       });
+      console.log("[Save Profile] Response:", res.data);
       setUserData({
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
-        emailOrMobile: userData.emailOrMobile
+        emailOrMobile: userData.emailOrMobile // Preserve original emailOrMobile
       });
       setIsEditing(false);
       showPopup("success", "Profile updated successfully");
     } catch (err) {
+      console.error("[Save Profile] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Failed to update profile");
     } finally {
       setLoading(false);
@@ -413,13 +326,15 @@ const UserDashboard = () => {
   };
 
   const handleDeactivateAccount = async () => {
-    if (!window.confirm("Are you sure you want to deactivate your account?")) return;
     setLoading(true);
     try {
-      await api.post("/user/deactivate", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Deactivate Account] Deactivating for:", userData.emailOrMobile);
+      const res = await api.post("/user/deactivate", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Deactivate Account] Response:", res.data);
       handleLogout();
       showPopup("success", "Account deactivated successfully");
     } catch (err) {
+      console.error("[Deactivate Account] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Failed to deactivate account");
     } finally {
       setLoading(false);
@@ -430,10 +345,13 @@ const UserDashboard = () => {
     if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
     setLoading(true);
     try {
-      await api.post("/user/delete", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Delete Account] Deleting for:", userData.emailOrMobile);
+      const res = await api.post("/user/delete", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Delete Account] Response:", res.data);
       handleLogout();
       showPopup("success", "Account deleted successfully");
     } catch (err) {
+      console.error("[Delete Account] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Failed to delete account");
     } finally {
       setLoading(false);
@@ -476,31 +394,39 @@ const UserDashboard = () => {
   ];
 
   const NavBar = () => (
-    <div className="bg-blue-600 text-white">
+    <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white">
       <div className="flex items-center justify-between p-3">
         <div className="flex items-center space-x-4">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="md:hidden"
+          >
             <Menu className="w-6 h-6" />
           </button>
           <div className="flex items-center space-x-2">
-            <div className="text-xl font-bold">Shopymol</div>
-            <div className="text-xs text-yellow-300">Explore</div>
+            <div className="text-xl font-bold italic">Shopymol</div>
+            <div className="text-xs text-yellow-300">Explore Plus</div>
           </div>
         </div>
+
         <div className="flex-1 max-w-lg mx-4 hidden md:block">
           <div className="relative">
             <input
               type="text"
-              placeholder="Search products..."
-              className="w-full p-2 pl-4 pr-10 text-black rounded"
+              placeholder="Search for products, brands and more"
+              className="w-full p-2 pl-4 pr-10 text-black rounded-lg"
             />
             <Search className="absolute right-3 top-2.5 w-5 h-5 text-blue-600" />
           </div>
         </div>
+
         <div className="flex items-center space-x-4">
           <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
             <span className="hidden md:block">{userData?.firstName || "User"}</span>
             <ChevronRight className="w-4 h-4" />
+          </button>
+          <button className="hidden md:block hover:bg-blue-700 p-2 rounded">
+            Become a Seller
           </button>
           <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
             <ShoppingCart className="w-5 h-5" />
@@ -524,36 +450,39 @@ const UserDashboard = () => {
               <p className="font-semibold">{userData?.firstName || "User"} {userData?.lastName || ""}</p>
             </div>
           </div>
+
           <nav className="space-y-1">
             {sidebarItems.map((item, index) => (
               <div key={index}>
-                <Link to={item.path} className="flex items-center justify-between p-2 hover:bg-gray-100 rounded">
+                <div className="flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer rounded">
                   <div className="flex items-center space-x-3">
                     <item.icon className="w-5 h-5 text-blue-600" />
                     <span className="text-sm font-medium text-gray-700">{item.label}</span>
                   </div>
                   {item.subItems && <ChevronRight className="w-4 h-4 text-gray-400" />}
-                </Link>
+                </div>
                 {item.subItems && (
                   <div className="ml-8 space-y-1">
                     {item.subItems.map((subItem, subIndex) => (
-                      <Link key={subIndex} to={subItem.path} className="flex items-center justify-between p-2 hover:bg-gray-50 rounded">
+                      <div key={subIndex} className="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer rounded">
                         <span className="text-sm text-gray-600">{subItem.label}</span>
                         {subItem.amount && <span className="text-sm font-medium">{subItem.amount}</span>}
-                      </Link>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
             ))}
           </nav>
+
           <div className="mt-8 pt-4 border-t">
             <div className="text-sm text-gray-600 mb-2">Frequently Visited:</div>
             <div className="space-y-1">
-              <Link to="/track-order" className="text-sm text-gray-500 hover:text-blue-600">Track Order</Link>
-              <Link to="/help" className="text-sm text-gray-500 hover:text-blue-600">Help Center</Link>
+              <div className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer">Track Order</div>
+              <div className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer">Help Center</div>
             </div>
           </div>
+
           <button
             onClick={handleLogout}
             className="w-full mt-6 flex items-center justify-center space-x-2 p-2 border border-gray-300 rounded hover:bg-gray-50"
@@ -566,168 +495,8 @@ const UserDashboard = () => {
     </div>
   );
 
-  const Setup2FAPopup = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-lg p-4 w-80">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-blue-600">2FA Setup</h2>
-          <button
-            onClick={() => {
-              setShow2FASetup(false);
-              setOtp(["", "", "", "", "", ""]);
-              setQrCode("");
-            }}
-            className="text-blue-500 hover:text-blue-700"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-sm text-gray-600 mb-2">Scan this QR code with your authenticator app:</p>
-        {qrCode && <img src={qrCode} alt="2FA QR Code" className="w-full mb-2" />}
-        <p className="text-sm text-gray-600 mb-2">Enter the 6-digit OTP from the app:</p>
-        <div className="flex justify-center space-x-2 mb-2">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              id={`otp-input-${index}`}
-              type="text"
-              value={digit}
-              onChange={(e) => handleOtpChange(index, e.target.value)}
-              maxLength={1}
-              className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
-            />
-          ))}
-        </div>
-        <p className="text-sm text-blue-500 mb-2 text-center">
-          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer expired! Resend OTP"}
-        </p>
-        {canResend && (
-          <button
-            onClick={handleResendOTP}
-            disabled={loading}
-            className="w-full text-sm text-orange-500 hover:text-orange-700"
-          >
-            Resend 2FA OTP
-          </button>
-        )}
-        <button
-          onClick={handleVerify2FA}
-          disabled={loading || otp.join("").length !== 6}
-          className="w-full mt-2 bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-        >
-          {loading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-          ) : (
-            <>
-              <CheckCircle className="w-5 h-5" />
-              <span>Verify 2FA</span>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-
-  const Verify2FAPopup = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-lg p-4 w-80">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-blue-600">Verify 2FA OTP</h2>
-          <button onClick={() => { setShow2FAPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-sm text-gray-600 mb-2">
-          Enter 2FA OTP sent to {emailOrMobile || userData.emailOrMobile}
-        </p>
-        <div className="flex justify-center space-x-2 mb-2">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              id={`otp-input-${index}`}
-              type="text"
-              value={digit}
-              onChange={(e) => handleOtpChange(index, e.target.value)}
-              maxLength={1}
-              className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
-            />
-          ))}
-        </div>
-        <p className="text-sm text-blue-500 mb-2 text-center">
-          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer expired! Resend OTP"}
-        </p>
-        {canResend && (
-          <button
-            onClick={handleResendOTP}
-            disabled={loading}
-            className="w-full text-sm text-orange-500 hover:text-orange-700"
-          >
-            Resend 2FA OTP
-          </button>
-        )}
-        <button
-          onClick={handleVerify2FA}
-          disabled={loading || otp.join("").length !== 6}
-          className="w-full mt-2 bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-        >
-          {loading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-          ) : (
-            <>
-              <CheckCircle className="w-5 h-5" />
-              <span>Verify 2FA</span>
-            </>
-          )}
-        </button>
-      </div>
-    </div>
-  );
-
-  const OtpPopup = () => (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-      <div className="bg-white rounded-lg shadow-lg p-4 w-80">
-        <div className="flex justify-between items-center mb-2">
-          <h2 className="text-lg font-semibold text-blue-600">
-            {showForgotPassword ? "Password Reset OTP" : "Verify OTP"}
-          </h2>
-          <button onClick={() => { setShowOtpPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <p className="text-sm text-gray-600 mb-2">
-          Enter OTP sent to {emailOrMobile}
-        </p>
-        <div className="flex justify-center space-x-2 mb-2">
-          {otp.map((digit, index) => (
-            <input
-              key={index}
-              id={`otp-input-${index}`}
-              type="text"
-              value={digit}
-              onChange={(e) => handleOtpChange(index, e.target.value)}
-              maxLength={1}
-              className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
-            />
-          ))}
-        </div>
-        <p className="text-sm text-blue-500 mb-2 text-center">
-          {timer > 0 ? `Resend OTP in ${formatTime(timer)}` : "Timer expired! Resend OTP"}
-        </p>
-        {canResend && (
-          <button
-            onClick={handleResendOTP}
-            disabled={loading}
-            className="w-full text-sm text-orange-500 hover:text-orange-700"
-          >
-            Resend OTP
-          </button>
-        )}
-      </div>
-    </div>
-  );
-
   const PersonalInfoSection = () => (
-    <div className="bg-white rounded shadow p-6">
+    <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-lg font-semibold text-gray-800">Personal Information</h1>
         {!isEditing ? (
@@ -743,7 +512,7 @@ const UserDashboard = () => {
             <button
               onClick={handleSaveProfile}
               disabled={loading}
-              className="bg-blue-600 text-white py-1.5 px-4 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+              className="bg-gradient-to-r from-green-600 to-blue-600 text-white py-1.5 px-4 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 disabled:opacity-50 flex items-center space-x-2"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -763,31 +532,35 @@ const UserDashboard = () => {
           </div>
         )}
       </div>
-      <div className="space-y-4">
+
+      <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <input
+              key="firstName-input"
               type="text"
               value={isEditing ? editData.firstName : userData?.firstName || ""}
               onChange={(e) => isEditing && setEditData({ ...editData, firstName: e.target.value })}
-              className="w-full p-2 border rounded bg-gray-50"
+              className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="First Name"
               readOnly={!isEditing}
             />
           </div>
           <div>
             <input
+              key="lastName-input"
               type="text"
               value={isEditing ? editData.lastName : userData?.lastName || ""}
               onChange={(e) => isEditing && setEditData({ ...editData, lastName: e.target.value })}
-              className="w-full p-2 border rounded bg-gray-50"
+              className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="Last Name"
               readOnly={!isEditing}
             />
           </div>
         </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Gender</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Your Gender</label>
           <div className="flex space-x-4">
             <label className="flex items-center">
               <input
@@ -827,9 +600,16 @@ const UserDashboard = () => {
             </label>
           </div>
         </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">Email Address</label>
+            {isEditing && (
+              <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+            )}
+          </div>
           <input
+            key="email-input"
             type="email"
             value={
               isEditing
@@ -841,13 +621,20 @@ const UserDashboard = () => {
                 : ""
             }
             onChange={(e) => isEditing && setEditData({ ...editData, emailOrMobile: e.target.value })}
-            className="w-full p-2 border rounded bg-gray-50"
+            className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
             readOnly={!isEditing}
           />
         </div>
+
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Mobile Number</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
+            {isEditing && (
+              <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
+            )}
+          </div>
           <input
+            key="mobile-input"
             type="text"
             value={
               isEditing
@@ -859,293 +646,385 @@ const UserDashboard = () => {
                 : ""
             }
             onChange={(e) => isEditing && setEditData({ ...editData, emailOrMobile: e.target.value.replace(/\D/g, "") })}
-            className="w-full p-2 border rounded bg-gray-50"
+            className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
             readOnly={!isEditing}
           />
         </div>
+
         <div className="border-t pt-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">Two-Factor Authentication</label>
-            {is2FAEnabled ? (
-              <button
-                onClick={handleDisable2FA}
-                disabled={loading}
-                className="text-red-600 hover:text-red-800 flex items-center space-x-1"
-              >
-                <Shield className="w-4 h-4" />
-                <span>Disable 2FA</span>
-              </button>
-            ) : (
-              <button
-                onClick={handleSetup2FA}
-                disabled={loading}
-                className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-              >
-                <Shield className="w-4 h-4" />
-                <span>Enable 2FA</span>
-              </button>
-            )}
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">FAQs</h3>
+          <div className="space-y-4">
+            <div>
+              <p className="font-medium mb-2">What happens when I update my email address (or mobile number)?</p>
+              <p className="text-sm text-gray-600">
+                Your login email id (or mobile number) changes, likewise. You'll receive all your account related 
+                communication on your updated email address (or mobile number).
+              </p>
+            </div>
+            <div>
+              <p className="font-medium mb-2">When will my Shopymol account be updated with the new email address (or mobile number)?</p>
+              <p className="text-sm text-gray-600">
+                It happens as soon as you confirm the verification code sent to your email (or mobile) and save the changes.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium mb-2">What happens to my existing Shopymol account when I update my email address (or mobile number)?</p>
+              <p className="text-sm text-gray-600">
+                Updating your email address (or mobile number) doesn't invalidate your account. Your account remains fully 
+                functional. You'll continue seeing your Order history, saved information and personal details.
+              </p>
+            </div>
+            <div>
+              <p className="font-medium mb-2">Does my Seller account get affected when I update my email address?</p>
+              <p className="text-sm text-gray-600">
+                Shopymol has a 'single sign-on' policy. Any changes will reflect in your Seller account also.
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-gray-600">
-            2FA Status: <span className={is2FAEnabled ? "text-green-600" : "text-red-600"}>
-              {is2FAEnabled ? "Enabled" : "Disabled"}
-            </span>
-          </p>
         </div>
+
         <div className="border-t pt-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Account Actions</h3>
           <div className="flex space-x-4">
             <button
               onClick={handleDeactivateAccount}
               disabled={loading}
-              className="text-red-600 hover:text-red-800 flex items-center space-x-1"
+              className="text-blue-600 hover:text-blue-800 disabled:opacity-50"
             >
-              <AlertCircle className="w-4 h-4" />
-              <span>Deactivate Account</span>
+              Deactivate Account
             </button>
             <button
               onClick={handleDeleteAccount}
               disabled={loading}
-              className="text-red-600 hover:text-red-800 flex items-center space-x-1"
+              className="text-red-600 hover:text-red-800 disabled:opacity-50"
             >
-              <AlertCircle className="w-4 h-4" />
-              <span>Delete Account</span>
+              Delete Account
             </button>
           </div>
         </div>
-      </div>
-    </div>
-  );
-
-  const LoginSection = () => (
-    <div className="bg-white rounded shadow p-6">
-      <h1 className="text-lg font-semibold text-gray-800 mb-4">Login</h1>
-      <div className="flex mb-4">
-        <button
-          className={`flex-1 py-2 text-center ${loginMethod === "otp" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"}`}
-          onClick={() => setLoginMethod("otp")}
-        >
-          OTP Login
-        </button>
-        <button
-          className={`flex-1 py-2 text-center ${loginMethod === "password" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"}`}
-          onClick={() => setLoginMethod("password")}
-        >
-          Password Login
-        </button>
-      </div>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Email or Mobile Number</label>
-          <div className="relative">
-            <Mail className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              value={emailOrMobile}
-              onChange={(e) => setEmailOrMobile(e.target.value)}
-              className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-              placeholder="Enter email or mobile number"
-            />
-          </div>
-        </div>
-        {loginMethod === "password" && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-              <input
-                type={showPassword ? "text" : "password"}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                placeholder="Enter password"
-              />
-              <button
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-2.5 text-gray-400"
-              >
-                {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        )}
-        <button
-          onClick={loginMethod === "otp" ? handleSendOTP : handlePasswordLogin}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-        >
-          {loading ? (
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-          ) : (
-            <>
-              <Send className="w-5 h-5" />
-              <span>{loginMethod === "otp" ? "Send OTP" : "Login"}</span>
-            </>
-          )}
-        </button>
-        <button
-          onClick={() => setShowForgotPassword(true)}
-          className="w-full text-blue-600 hover:text-blue-800 text-sm"
-        >
-          Forgot Password?
-        </button>
-        <div className="text-center">
-          <span className="text-sm text-gray-600">New to Shopymol? </span>
-          <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold text-sm">Create Account</Link>
-        </div>
-      </div>
-    </div>
-  );
-
-  const ForgotPasswordSection = () => (
-    <div className="bg-white rounded shadow p-6">
-      <h1 className="text-lg font-semibold text-gray-800 mb-4">Reset Password</h1>
-      <div className="space-y-4">
-        {!otpVerified ? (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Email or Mobile Number</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-                <input
-                  type="text"
-                  value={emailOrMobile}
-                  onChange={(e) => setEmailOrMobile(e.target.value)}
-                  className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                  placeholder="Enter email or mobile number"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleForgotPasswordOTP}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <Send className="w-5 h-5" />
-                  <span>Send OTP</span>
-                </>
-              )}
-            </button>
-          </>
-        ) : (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-                <input
-                  type={showNewPassword ? "text" : "password"}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                  placeholder="Enter new password"
-                />
-                <button
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-2.5 text-gray-400"
-                >
-                  {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 w-5 h-5 text-gray-400" />
-                <input
-                  type={showConfirmPassword ? "text" : "password"}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full p-2 pl-10 border rounded focus:outline-none focus:border-blue-500"
-                  placeholder="Confirm new password"
-                />
-                <button
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-2.5 text-gray-400"
-                >
-                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-            </div>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleResetPassword}
-                disabled={loading}
-                className="flex-1 bg-blue-600 text-white py-2 rounded font-semibold hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-              >
-                {loading ? (
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                ) : (
-                  <>
-                    <CheckCircle className="w-5 h-5" />
-                    <span>Reset Password</span>
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowForgotPassword(false);
-                  setOtpSent(false);
-                  setOtpVerified(false);
-                  setOtp(["", "", "", "", "", ""]);
-                  setNewPassword("");
-                  setConfirmPassword("");
-                }}
-                className="flex-1 bg-gray-500 text-white py-2 rounded font-semibold hover:bg-gray-600"
-              >
-                Back to Login
-              </button>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {popup.show && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded shadow p-4 max-w-sm w-full">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${popup.type === "success" ? "bg-green-100" : "bg-red-100"}`}>
-                  {popup.type === "success" ? <CheckCircle className="w-5 h-5 text-green-600" /> : <AlertCircle className="w-5 h-5 text-red-600" />}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
+          <div className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 transform transition-all duration-300 ${popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${popup.type === "success" ? "bg-green-100" : "bg-red-100"}`}>
+                  {popup.type === "success" ? <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" /> : <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />}
                 </div>
-                <h3 className={`font-semibold ${popup.type === "success" ? "text-green-800" : "text-red-800"}`}>{popup.type === "success" ? "Success!" : "Error!"}</h3>
+                <h3 className={`font-semibold text-base sm:text-lg ${popup.type === "success" ? "text-green-800" : "text-red-800"}`}>{popup.type === "success" ? "Success!" : "Error!"}</h3>
               </div>
-              <button onClick={() => setPopup({ show: false, type: "", message: "" })} className="text-gray-400 hover:text-gray-600">
-                <X className="w-5 h-5" />
+              <button onClick={() => setPopup({ show: false, type: "", message: "" })} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
-            <p className="text-gray-700">{popup.message}</p>
+            <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">{popup.message}</p>
+            <div className={`w-full h-1 rounded-full ${popup.type === "success" ? "bg-green-200" : "bg-red-200"}`}>
+              <div className={`h-full rounded-full animate-pulse ${popup.type === "success" ? "bg-green-500" : "bg-red-500"}`} style={{ width: "100%" }}></div>
+            </div>
           </div>
         </div>
       )}
-      <NavBar />
-      {show2FASetup && <Setup2FAPopup />}
-      {show2FAPopup && <Verify2FAPopup />}
-      {showOtpPopup && <OtpPopup />}
-      <div className="container mx-auto p-4 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-        <div className="md:w-1/4">
-          {isLoggedIn && <Sidebar />}
+
+      {showOtpPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-80">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-semibold text-blue-700">Login</h2>
+              <button onClick={() => { setShowOtpPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 mb-2">
+              Enter OTP Sent to {emailOrMobile}
+            </p>
+            <div className="flex justify-center space-x-2 mb-2">
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  id={`otp-input-${index}`}
+                  type="text"
+                  value={digit}
+                  onChange={(e) => handleOtpChange(index, e.target.value)}
+                  maxLength={1}
+                  className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
+                />
+              ))}
+            </div>
+            {timer > 0 && (
+              <p className="text-xs text-blue-500 mb-2 text-center">Resend OTP in {formatTime(timer)}</p>
+            )}
+            {canResend && (
+              <button
+                onClick={handleResendOTP}
+                disabled={loading}
+                className="w-full text-xs text-orange-500 hover:text-orange-700 mt-2"
+              >
+                Resend OTP
+              </button>
+            )}
+          </div>
         </div>
-        <div className="md:w-3/4">
-          {!isLoggedIn ? (
-            showForgotPassword ? (
-              <ForgotPasswordSection />
-            ) : (
-              <LoginSection />
-            )
-          ) : (
+      )}
+
+      {!isLoggedIn ? (
+        <div className="flex items-center justify-center min-h-screen p-2 sm:p-4">
+          <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg xl:max-w-xl">
+            <div className="text-center mb-6 sm:mb-8">
+              <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4">
+                <Lock className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {showForgotPassword ? "Reset Password" : "Login to Shopymol"}
+              </h1>
+              <p className="text-gray-600 mt-2 text-sm sm:text-base px-2">
+                {showForgotPassword ? "Create a new password" : "Choose your preferred login method"}
+              </p>
+            </div>
+
+            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100 backdrop-blur-sm">
+              {showForgotPassword ? (
+                <div className="space-y-4 sm:space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={emailOrMobile}
+                        onChange={(e) => setEmailOrMobile(e.target.value)}
+                        className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                        placeholder="Enter email or mobile number"
+                      />
+                    </div>
+                  </div>
+
+                  {!otpSent ? (
+                    <button
+                      onClick={handleForgotPasswordOTP}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                    >
+                      {loading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                          <span>Send OTP</span>
+                        </>
+                      )}
+                    </button>
+                  ) : !otpVerified ? (
+                    <div className="space-y-3 sm:space-y-4">
+                      {/* OTP popup handled separately above */}
+                    </div>
+                  ) : (
+                    <div className="space-y-4 sm:space-y-6">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                          </div>
+                          <input
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                            placeholder="Enter new password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          >
+                            {showNewPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                          </div>
+                          <input
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                            placeholder="Confirm new password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                        <button
+                          onClick={handleResetPassword}
+                          disabled={loading}
+                          className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-purple-700 hover:to-pink-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                        >
+                          {loading ? (
+                            <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>Reset Password</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setShowForgotPassword(false)}
+                          className="px-4 py-2.5 sm:py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105"
+                        >
+                          Back to Login
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-4 sm:space-y-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                      </div>
+                      <input
+                        type="text"
+                        value={emailOrMobile}
+                        onChange={(e) => setEmailOrMobile(e.target.value)}
+                        className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                        placeholder="Enter email or mobile number"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setLoginMethod("otp")}
+                      className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
+                        loginMethod === "otp" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
+                      }`}
+                    >
+                      Login with OTP
+                    </button>
+                    <button
+                      onClick={() => setLoginMethod("password")}
+                      className={`flex-1 py-2 px-4 rounded-md text-sm font-semibold transition-all ${
+                        loginMethod === "password" ? "bg-white text-blue-600 shadow-sm" : "text-gray-600 hover:text-gray-800"
+                      }`}
+                    >
+                      Login with Password
+                    </button>
+                  </div>
+
+                  {loginMethod === "otp" && (
+                    <>
+                      {!otpSent ? (
+                        <button
+                          onClick={handleSendOTP}
+                          disabled={loading}
+                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                        >
+                          {loading ? (
+                            <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                          ) : (
+                            <>
+                              <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>Send OTP</span>
+                            </>
+                          )}
+                        </button>
+                      ) : (
+                        <div>
+                          {/* OTP popup handled separately above */}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {loginMethod === "password" && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                        <div className="relative">
+                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                          </div>
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                            placeholder="Enter your password"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
+                        <button
+                          onClick={handlePasswordLogin}
+                          disabled={loading}
+                          className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                        >
+                          {loading ? (
+                            <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                          ) : (
+                            <>
+                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                              <span>Login</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => setShowForgotPassword(true)}
+                          className="px-4 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-600 text-white rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
+                        >
+                          <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
+                          <span>Forgot Password</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-center mt-4">
+                    <span className="text-sm text-gray-600">New to Shopymol? </span>
+                    <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold text-sm">Create Account</Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="flex">
+          <Sidebar />
+          <div className="flex-1 p-4 md:p-6">
             <PersonalInfoSection />
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

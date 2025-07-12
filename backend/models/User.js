@@ -14,10 +14,6 @@ const userSchema = new mongoose.Schema({
   resetOtp: { type: String },
   resetOtpExpires: { type: Date },
   isActive: { type: Boolean, default: true }, // Added for deactivation
-  // User.js (Mongoose model) — Add this to your schema
-twoFASecret: { type: String },
-is2FAEnabled: { type: Boolean, default: false },
-
 });
 
 module.exports = mongoose.model("User", userSchema);
