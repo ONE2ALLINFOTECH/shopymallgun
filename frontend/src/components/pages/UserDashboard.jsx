@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
-  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
+  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit
 } from "lucide-react";
 import QRCode from "qrcode.react";
 import api from "../api/api";
