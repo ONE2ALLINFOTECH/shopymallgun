@@ -4,7 +4,7 @@ import {
   ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
 import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
-import { Link } from "react-router-dom"; // Import Link from react-router-dom
+import { Link } from "react-router-dom";
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
@@ -27,6 +27,7 @@ const UserDashboard = () => {
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
+  const [show2FAPopup, setShow2FAPopup] = useState(false); // New state for 2FA popup
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     firstName: "",
@@ -37,7 +38,7 @@ const UserDashboard = () => {
 
   useEffect(() => {
     let interval;
-    if (otpSent && !otpVerified && timer > 0) {
+    if ((otpSent || show2FAPopup) && !otpVerified && timer > 0) {
       interval = setInterval(() => {
         setTimer((prev) => {
           if (prev <= 1) {
@@ -48,11 +49,15 @@ const UserDashboard = () => {
         });
       }, 1000);
     }
-    if (otpSent && !otpVerified && otp.join("").length === 6) {
-      handleVerifyOTP();
+    if ((otpSent || show2FAPopup) && !otpVerified && otp.join("").length === 6) {
+      if (show2FAPopup) {
+        handleVerify2FA();
+      } else {
+        handleVerifyOTP();
+      }
     }
     return () => clearInterval(interval);
-  }, [otpSent, otpVerified, timer, otp]);
+  }, [otpSent, show2FAPopup, otpVerified, timer, otp]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -119,18 +124,10 @@ const UserDashboard = () => {
     try {
       console.log("[Verify OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
       await api.post("/user/verify-otp", { emailOrMobile, otp: otp.join("") });
-      const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
-      console.log("[Verify OTP] Profile Data:", res.data);
-      setUserData({
-        firstName: res.data.firstName || "",
-        lastName: res.data.lastName || "",
-        gender: res.data.gender || "",
-        emailOrMobile: res.data.emailOrMobile || emailOrMobile
-      });
-      setOtpVerified(true);
-      setIsLoggedIn(true);
+      // After OTP verification, trigger 2FA
+      setOtp(["", "", "", "", "", ""]);
       setShowOtpPopup(false);
-      showPopup("success", "OTP verified successfully");
+      await handleSend2FAOTP();
     } catch (err) {
       console.error("[Verify OTP] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
@@ -147,21 +144,60 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       console.log("[Password Login] Attempting login for:", emailOrMobile);
-      const res = await api.post("/user/login", { emailOrMobile, password });
-      console.log("[Password Login] Response:", res.data);
-      const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
-      console.log("[Password Login] Profile Data:", profileRes.data);
-      setUserData({
-        firstName: profileRes.data.firstName || "",
-        lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
-        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile
-      });
-      setIsLoggedIn(true);
-      showPopup("success", res.data.message || "Login successful");
+      await api.post("/user/login", { emailOrMobile, password });
+      // After password login, trigger 2FA
+      await handleSend2FAOTP();
     } catch (err) {
       console.error("[Password Login] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSend2FAOTP = async () => {
+    setLoading(true);
+    try {
+      console.log("[Send 2FA OTP] Sending 2FA OTP to:", emailOrMobile);
+      const res = await api.post("/user/send-2fa-otp", { emailOrMobile }); // New backend endpoint
+      console.log("[Send 2FA OTP] Response:", res.data);
+      showPopup("success", res.data.message || "2FA OTP sent successfully");
+      setShow2FAPopup(true);
+      setTimer(120);
+      setCanResend(false);
+      setOtp(["", "", "", "", "", ""]);
+    } catch (err) {
+      console.error("[Send 2FA OTP] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to send 2FA OTP");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!otp.join("").trim()) {
+      showPopup("error", "2FA OTP is required");
+      return;
+    }
+    setLoading(true);
+    try {
+      console.log("[Verify 2FA] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      await api.post("/api/verify-2fa", { emailOrMobile, otp: otp.join("") });
+      const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
+      console.log("[Verify 2FA] Profile Data:", res.data);
+      setUserData({
+        firstName: res.data.firstName || "",
+        lastName: res.data.lastName || "",
+        gender: res.data.gender || "",
+        emailOrMobile: res.data.emailOrMobile || emailOrMobile
+      });
+      setOtpVerified(true);
+      setIsLoggedIn(true);
+      setShow2FAPopup(false);
+      showPopup("success", "2FA verified successfully");
+    } catch (err) {
+      console.error("[Verify 2FA] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Please enter the correct 2FA OTP");
     } finally {
       setLoading(false);
     }
@@ -171,7 +207,7 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       console.log("[Resend OTP] Resending OTP to:", emailOrMobile);
-      const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
+      const res = await api.post(show2FAPopup ? "/user/send-2fa-otp" : "/user/send-otp", { emailOrMobile, isRegistration: false });
       console.log("[Resend OTP] Response:", res.data);
       showPopup("success", "OTP resent successfully");
       setTimer(120);
@@ -193,7 +229,7 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       console.log("[Forgot Password OTP] Sending OTP to:", emailOrMobile);
-      const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
+      const res = await api.post("/user/forgot/send-7otp", { emailOrMobile });
       console.log("[Forgot Password OTP] Response:", res.data);
       if (res.data && res.data.error && res.data.error.includes("not registered")) {
         showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
@@ -278,6 +314,7 @@ const UserDashboard = () => {
     setConfirmPassword("");
     setOtpSent(false);
     setOtpVerified(false);
+    setShow2FAPopup(false); // Reset 2FA popup
     setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "" });
     setShowForgotPassword(false);
     setTimer(120);
@@ -287,7 +324,7 @@ const UserDashboard = () => {
 
   const handleOtpChange = (index, value) => {
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1); // Only take the last character
+    newOtp[index] = value.slice(-1);
     setOtp(newOtp);
     if (value && index < 5) {
       document.getElementById(`otp-input-${index + 1}`).focus();
@@ -303,7 +340,7 @@ const UserDashboard = () => {
     try {
       console.log("[Save Profile] Updating profile for:", emailOrMobile);
       const res = await api.post("/user/profile-info", {
-        emailOrMobile: userData.emailOrMobile, // Use original emailOrMobile for identification
+        emailOrMobile: userData.emailOrMobile,
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
@@ -313,7 +350,7 @@ const UserDashboard = () => {
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
-        emailOrMobile: userData.emailOrMobile // Preserve original emailOrMobile
+        emailOrMobile: userData.emailOrMobile
       });
       setIsEditing(false);
       showPopup("success", "Profile updated successfully");
@@ -705,6 +742,47 @@ const UserDashboard = () => {
     </div>
   );
 
+  const Verify2FAPopup = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-lg p-4 w-80">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold text-blue-700">Two-Factor Authentication</h2>
+          <button onClick={() => { setShow2FAPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mb-2">
+          Enter 2FA OTP Sent to {emailOrMobile}
+        </p>
+        <div className="flex justify-center space-x-2 mb-2">
+          {otp.map((digit, index) => (
+            <input
+              key={index}
+              id={`otp-input-${index}`}
+              type="text"
+              value={digit}
+              onChange={(e) => handleOtpChange(index, e.target.value)}
+              maxLength={1}
+              className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
+            />
+          ))}
+        </div>
+        {timer > 0 && (
+          <p className="text-xs text-blue-500 mb-2 text-center">Resend OTP in {formatTime(timer)}</p>
+        )}
+        {canResend && (
+          <button
+            onClick={handleResendOTP}
+            disabled={loading}
+            className="w-full text-xs text-orange-500 hover:text-orange-700 mt-2"
+          >
+            Resend 2FA OTP
+          </button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {popup.show && (
@@ -769,6 +847,8 @@ const UserDashboard = () => {
           </div>
         </div>
       )}
+
+      {show2FAPopup && <Verify2FAPopup />}
 
       {!isLoggedIn ? (
         <div className="flex items-center justify-center min-h-screen p-2 sm:p-4">
@@ -866,7 +946,7 @@ const UserDashboard = () => {
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                             className="absolute inset-y-0 right-0 pr-3 flex items-center"
                           >
-                            {showConfirmPassword ? <EyeOff className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
+                            {showConfirmPassword ? <EyeOff транслировать className="w-4 h-4 text-gray-400" /> : <Eye className="w-4 h-4 text-gray-400" />}
                           </button>
                         </div>
                       </div>
@@ -1021,6 +1101,7 @@ const UserDashboard = () => {
         <div className="flex">
           <Sidebar />
           <div className="flex-1 p-4 md:p-6">
+            <NavBar />
             <PersonalInfoSection />
           </div>
         </div>

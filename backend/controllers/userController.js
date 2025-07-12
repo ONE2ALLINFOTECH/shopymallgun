@@ -3,6 +3,8 @@ const User = require("../models/User");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
+const speakeasy = require("speakeasy");
+const qrcode = require("qrcode");
 
 const sendOTP = async (req, res) => {
   const { emailOrMobile, isRegistration = false } = req.body;
@@ -522,7 +524,70 @@ const deleteAccount = async (req, res) => {
     res.status(500).json({ error: "Failed to delete account" });
   }
 };
+const setup2FA = async (req, res) => {
+  const { emailOrMobile } = req.body;
 
+  const normalizedInput = emailOrMobile.includes("@")
+    ? emailOrMobile
+    : emailOrMobile.replace(/\D/g, "").replace(/^(\d{10})$/, "91$1");
+
+  const user = await User.findOne({
+    $or: [
+      { emailOrMobile: normalizedInput },
+      { emailOrMobile: normalizedInput.replace(/^91/, "") },
+    ],
+  });
+
+  if (!user) return res.status(404).json({ error: "User not found" });
+
+  const secret = speakeasy.generateSecret({
+    name: `Shopymol (${emailOrMobile})`,
+  });
+
+  user.twoFASecret = secret.base32;
+  await user.save();
+
+  qrcode.toDataURL(secret.otpauth_url, (err, data_url) => {
+    if (err) return res.status(500).json({ error: "QR code error" });
+    res.json({ qr: data_url });
+  });
+};
+
+// ✅ Step 2: Verify 2FA OTP
+const verify2FA = async (req, res) => {
+  const { emailOrMobile, otp } = req.body;
+
+  const normalizedInput = emailOrMobile.includes("@")
+    ? emailOrMobile
+    : emailOrMobile.replace(/\D/g, "").replace(/^(\d{10})$/, "91$1");
+
+  const user = await User.findOne({
+    $or: [
+      { emailOrMobile: normalizedInput },
+      { emailOrMobile: normalizedInput.replace(/^91/, "") },
+    ],
+  });
+
+  if (!user || !user.twoFASecret) {
+    return res.status(400).json({ error: "2FA not setup for this user" });
+  }
+
+  const verified = speakeasy.totp.verify({
+    secret: user.twoFASecret,
+    encoding: "base32",
+    token: otp,
+    window: 1,
+  });
+
+  if (!verified) {
+    return res.status(401).json({ error: "Invalid or expired OTP" });
+  }
+
+  user.is2FAEnabled = true;
+  await user.save();
+
+  res.json({ success: true, message: "2FA verified and enabled successfully" });
+};
 module.exports = {
   sendOTP,
   verifyOTP,
@@ -537,4 +602,6 @@ module.exports = {
   getUserProfile,
   deactivateAccount,
   deleteAccount,
+  setup2FA,
+  verify2FA,
 };

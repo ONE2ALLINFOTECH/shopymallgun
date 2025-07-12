@@ -15,6 +15,8 @@ const {
   getUserProfile,
   deactivateAccount,
   deleteAccount,
+  setup2FA,
+  verify2FA,
 } = require("../controllers/userController");
 
 // Registration and Profile Routes
@@ -35,5 +37,7 @@ router.post("/verify-email-otp", verifyEmailOTP);
 // New Routes for Deactivate and Delete
 router.post("/deactivate", deactivateAccount);
 router.post("/delete", deleteAccount);
+router.post("/setup-2fa", setup2FA);
+router.post("/verify-2fa", verify2FA);
 
 module.exports = router;
