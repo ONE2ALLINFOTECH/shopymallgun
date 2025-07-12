@@ -13,8 +13,8 @@ const userSchema = new mongoose.Schema({
   resetOtp: { type: String },
   resetOtpExpires: { type: Date },
   isActive: { type: Boolean, default: true },
-  twoFactorSecret: { type: String }, // Added for 2FA secret
-  twoFactorEnabled: { type: Boolean, default: false }, // Added to track 2FA status
+  twoFactorSecret: { type: String }, // Added for Google Authenticator TOTP secret
+  twoFactorEnabled: { type: Boolean, default: false }, // Added to track if 2FA is enabled
 });
 
 module.exports = mongoose.model("User", userSchema);
