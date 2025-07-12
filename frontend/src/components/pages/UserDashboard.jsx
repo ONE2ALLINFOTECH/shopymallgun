@@ -34,11 +34,11 @@ const UserDashboard = () => {
     gender: "",
     emailOrMobile: ""
   });
-  const [show2FAPopup, setShow2FAPopup] = useState(false); // Added for 2FA OTP
-  const [tempToken, setTempToken] = useState(""); // Added for 2FA temp token
-  const [qrCode, setQrCode] = useState(""); // Added for 2FA QR code
-  const [twoFAOtp, setTwoFAOtp] = useState(["", "", "", "", "", ""]); // Added for 2FA OTP input
-  const [twoFATimer, setTwoFATimer] = useState(30); // Added for 30-second 2FA timer
+  const [show2FAPopup, setShow2FAPopup] = useState(false);
+  const [tempToken, setTempToken] = useState("");
+  const [qrCode, setQrCode] = useState("");
+  const [twoFAOtp, setTwoFAOtp] = useState(["", "", "", "", "", ""]);
+  const [twoFATimer, setTwoFATimer] = useState(30);
 
   useEffect(() => {
     let interval;
@@ -66,7 +66,7 @@ const UserDashboard = () => {
         setTwoFATimer((prev) => {
           if (prev <= 1) {
             setTwoFAOtp(["", "", "", "", "", ""]);
-            return 30; // Reset to 30 seconds for Google Authenticator
+            return 30;
           }
           return prev - 1;
         });
@@ -411,14 +411,19 @@ const UserDashboard = () => {
       console.log("[2FA Setup] Requesting QR code for:", userData.emailOrMobile);
       const res = await api.post("/user/send-2fa-otp", { emailOrMobile: userData.emailOrMobile });
       console.log("[2FA Setup] Response:", res.data);
-      setQrCode(res.data.qrCode);
-      setShow2FAPopup(true);
-      setTwoFATimer(30);
-      setTwoFAOtp(["", "", "", "", "", ""]);
-      showPopup("success", "Scan the QR code with Google Authenticator");
+      if (res.data.qrCode && res.data.qrCode.startsWith("data:image/png;base64,")) {
+        setQrCode(res.data.qrCode);
+        setShow2FAPopup(true);
+        setTwoFATimer(30);
+        setTwoFAOtp(["", "", "", "", "", ""]);
+        showPopup("success", "Scan the QR code with Google Authenticator");
+      } else {
+        throw new Error("Invalid QR code format");
+      }
     } catch (err) {
       console.error("[2FA Setup] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to set up 2FA");
+      showPopup("error", err.response?.data?.error || "Failed to set up 2FA. Please try again.");
+      setQrCode("");
     } finally {
       setLoading(false);
     }
@@ -774,17 +779,30 @@ const UserDashboard = () => {
             <button
               onClick={userData.is2FAEnabled ? handleDisable2FA : handleSend2FAOTP}
               disabled={loading}
-              className="text-blue-600 hover:text-blue-800 flex items-center space-x-1"
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-1.5 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center space-x-2"
             >
               <Key className="w-4 h-4" />
               <span>{userData.is2FAEnabled ? "Disable 2FA" : "Enable 2FA"}</span>
             </button>
           </div>
-          {qrCode && (
-            <div className="mb-4">
-              <p className="text-sm text-gray-600 mb-2">Scan this QR code with Google Authenticator:</p>
-              <img src={qrCode} alt="2FA QR Code" className="w-32 h-32 mx-auto" />
+          {qrCode ? (
+            <div className="mb-4 text-center">
+              <p className="text-sm text-gray-600 mb-2">Scan this QR code with Google Authenticator to enable 2FA:</p>
+              <img
+                src={qrCode}
+                alt="2FA QR Code"
+                className="w-48 h-48 mx-auto border-2 border-gray-200 rounded-lg"
+                onError={() => {
+                  setQrCode("");
+                  showPopup("error", "Failed to load QR code. Please try enabling 2FA again.");
+                }}
+              />
+              <p className="text-xs text-gray-500 mt-2">After scanning, enter the 6-digit code in the popup.</p>
             </div>
+          ) : userData.is2FAEnabled ? (
+            <p className="text-sm text-gray-600">2FA is enabled. Use Google Authenticator to log in.</p>
+          ) : (
+            <p className="text-sm text-gray-600">Click 'Enable 2FA' to set up two-factor authentication.</p>
           )}
         </div>
 
