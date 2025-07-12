@@ -1,9 +1,14 @@
-
 const User = require("../models/User");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
+const Google2FA = require("pragmarx/google2fa");
+const QRCode = require("qrcode");
+const jwt = require("jsonwebtoken");
 
+const google2fa = new Google2FA();
+
+// Existing functions (sendOTP, verifyOTP, registerUser, etc.) remain unchanged
 const sendOTP = async (req, res) => {
   const { emailOrMobile, isRegistration = false } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
@@ -13,7 +18,6 @@ const sendOTP = async (req, res) => {
     const isEmail = emailOrMobile.includes("@");
     let normalizedInput = emailOrMobile;
 
-    // Normalize mobile number
     if (!isEmail) {
       normalizedInput = emailOrMobile.replace(/\D/g, "");
       if (normalizedInput.length === 10) {
@@ -26,12 +30,10 @@ const sendOTP = async (req, res) => {
 
     let user = await User.findOne({ emailOrMobile: normalizedInput });
 
-    // For registration, check if user exists
     if (isRegistration && user) {
       return res.status(400).json({ error: "Email or mobile already exists" });
     }
 
-    // Create new user if none exists
     if (!user) {
       user = new User({ emailOrMobile: normalizedInput });
     }
@@ -164,7 +166,6 @@ const saveProfileInfo = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    // Update only provided fields
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (gender) user.gender = gender;
@@ -268,6 +269,7 @@ const getUserProfile = async (req, res) => {
       gender: user.gender,
       address: user.address,
       isVerified: user.isVerified,
+      is2FAEnabled: user.is2FAEnabled, // Added for 2FA status
     });
   } catch (err) {
     console.error("❌ Error fetching profile:", err.message);
@@ -308,7 +310,14 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: "Invalid password" });
     }
 
-    res.json({ success: true, message: "Login successful" });
+    if (user.is2FAEnabled) {
+      // Return a temporary token for 2FA verification
+      const tempToken = jwt.sign({ id: user._id, requires2FA: true }, process.env.JWT_SECRET, { expiresIn: "5m" });
+      return res.json({ success: true, message: "2FA required", tempToken, emailOrMobile: user.emailOrMobile });
+    }
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    res.json({ success: true, message: "Login successful", token, emailOrMobile: user.emailOrMobile });
   } catch (err) {
     console.error("[Backend] Login Error:", err.message);
     res.status(500).json({ error: "Login failed" });
@@ -523,6 +532,124 @@ const deleteAccount = async (req, res) => {
   }
 };
 
+// New 2FA functions
+const send2FAOTP = async (req, res) => {
+  const { emailOrMobile } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+
+  try {
+    console.log("[Backend] Enabling 2FA for:", normalizedInput);
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+
+    if (!user) {
+      console.log("[Backend] User not found:", normalizedInput);
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (user.is2FAEnabled) {
+      return res.status(400).json({ error: "2FA already enabled" });
+    }
+
+    const secret = google2fa.generateSecret(16);
+    user.google2FASecret = secret;
+    await user.save();
+
+    const qrCodeUrl = google2fa.getQRCodeUrl(
+      "Shopymol",
+      user.emailOrMobile,
+      secret
+    );
+
+    const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
+    console.log("[Backend] 2FA QR code generated for:", normalizedInput);
+
+    res.json({ success: true, message: "Scan the QR code with Google Authenticator", qrCode: qrCodeImage, secret });
+  } catch (err) {
+    console.error("[Backend] 2FA Setup Error:", err.message);
+    res.status(500).json({ error: "Failed to set up 2FA" });
+  }
+};
+
+const verify2FA = async (req, res) => {
+  const { emailOrMobile, otp } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+
+  try {
+    console.log("[Backend] Verifying 2FA for:", normalizedInput);
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+
+    if (!user || !user.google2FASecret) {
+      return res.status(400).json({ error: "2FA not enabled for this user" });
+    }
+
+    const isValid = google2fa.verifyKey(user.google2FASecret, otp, 1); // Window of 1 for 30-second OTP
+    if (!isValid) {
+      return res.status(400).json({ error: "Invalid 2FA OTP" });
+    }
+
+    user.is2FAEnabled = true;
+    await user.save();
+
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
+    console.log("[Backend] 2FA verified for:", normalizedInput);
+    res.json({ success: true, message: "2FA verified successfully", token, emailOrMobile: user.emailOrMobile });
+  } catch (err) {
+    console.error("[Backend] 2FA Verification Error:", err.message);
+    res.status(500).json({ error: "2FA verification failed" });
+  }
+};
+
+const disable2FA = async (req, res) => {
+  const { emailOrMobile } = req.body;
+  let normalizedInput = emailOrMobile;
+  if (!emailOrMobile.includes("@")) {
+    normalizedInput = emailOrMobile.replace(/\D/g, "");
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
+  }
+
+  try {
+    console.log("[Backend] Disabling 2FA for:", normalizedInput);
+    const user = await User.findOne({
+      $or: [
+        { emailOrMobile: normalizedInput },
+        { emailOrMobile: normalizedInput.replace(/^91/, "") },
+      ],
+    });
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.google2FASecret = null;
+    user.is2FAEnabled = false;
+    await user.save();
+
+    console.log("[Backend] 2FA disabled for:", normalizedInput);
+    res.json({ success: true, message: "2FA disabled successfully" });
+  } catch (err) {
+    console.error("[Backend] Disable 2FA Error:", err.message);
+    res.status(500).json({ error: "Failed to disable 2FA" });
+  }
+};
+
 module.exports = {
   sendOTP,
   verifyOTP,
@@ -537,4 +664,7 @@ module.exports = {
   getUserProfile,
   deactivateAccount,
   deleteAccount,
+  send2FAOTP,
+  verify2FA,
+  disable2FA,
 };

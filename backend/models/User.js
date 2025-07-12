@@ -1,4 +1,3 @@
-
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
@@ -13,7 +12,9 @@ const userSchema = new mongoose.Schema({
   address: { type: String },
   resetOtp: { type: String },
   resetOtpExpires: { type: Date },
-  isActive: { type: Boolean, default: true }, // Added for deactivation
+  isActive: { type: Boolean, default: true },
+  google2FASecret: { type: String }, // Added for 2FA secret
+  is2FAEnabled: { type: Boolean, default: false }, // Added for 2FA status
 });
 
 module.exports = mongoose.model("User", userSchema);
