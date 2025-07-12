@@ -1,14 +1,11 @@
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
-const Google2FA = require("pragmarx/google2fa");
-const QRCode = require("qrcode");
-const jwt = require("jsonwebtoken");
+const speakeasy = require("speakeasy"); // Added for TOTP
+const qrcode = require("qrcode"); // Added for QR code generation
 
-const google2fa = new Google2FA();
-
-// Existing functions (sendOTP, verifyOTP, registerUser, etc.) remain unchanged
 const sendOTP = async (req, res) => {
   const { emailOrMobile, isRegistration = false } = req.body;
   const otp = Math.floor(100000 + Math.random() * 900000);
@@ -269,7 +266,7 @@ const getUserProfile = async (req, res) => {
       gender: user.gender,
       address: user.address,
       isVerified: user.isVerified,
-      is2FAEnabled: user.is2FAEnabled, // Added for 2FA status
+      twoFactorEnabled: user.twoFactorEnabled, // Added for 2FA status
     });
   } catch (err) {
     console.error("❌ Error fetching profile:", err.message);
@@ -310,14 +307,12 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: "Invalid password" });
     }
 
-    if (user.is2FAEnabled) {
-      // Return a temporary token for 2FA verification
-      const tempToken = jwt.sign({ id: user._id, requires2FA: true }, process.env.JWT_SECRET, { expiresIn: "5m" });
-      return res.json({ success: true, message: "2FA required", tempToken, emailOrMobile: user.emailOrMobile });
+    // Check if 2FA is enabled
+    if (user.twoFactorEnabled) {
+      return res.json({ success: true, message: "Password verified, 2FA required", twoFactorRequired: true });
     }
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    res.json({ success: true, message: "Login successful", token, emailOrMobile: user.emailOrMobile });
+    res.json({ success: true, message: "Login successful" });
   } catch (err) {
     console.error("[Backend] Login Error:", err.message);
     res.status(500).json({ error: "Login failed" });
@@ -532,7 +527,6 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-// New 2FA functions
 const send2FAOTP = async (req, res) => {
   const { emailOrMobile } = req.body;
   let normalizedInput = emailOrMobile;
@@ -542,7 +536,8 @@ const send2FAOTP = async (req, res) => {
   }
 
   try {
-    console.log("[Backend] Enabling 2FA for:", normalizedInput);
+    console.log("[Backend] Generating 2FA QR code for:", normalizedInput);
+
     const user = await User.findOne({
       $or: [
         { emailOrMobile: normalizedInput },
@@ -551,36 +546,37 @@ const send2FAOTP = async (req, res) => {
     });
 
     if (!user) {
-      console.log("[Backend] User not found:", normalizedInput);
+      console.log("[Backend] User not found for 2FA setup:", normalizedInput);
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (user.is2FAEnabled) {
-      return res.status(400).json({ error: "2FA already enabled" });
+    if (user.twoFactorEnabled) {
+      return res.status(400).json({ error: "2FA is already enabled" });
     }
 
-    const secret = google2fa.generateSecret(16);
-    user.google2FASecret = secret;
+    // Generate a new 2FA secret
+    const secret = speakeasy.generateSecret({
+      length: 20,
+      name: `Shopymol:${emailOrMobile}`,
+      issuer: "Shopymol",
+    });
+
+    user.twoFactorSecret = secret.base32;
     await user.save();
 
-    const qrCodeUrl = google2fa.getQRCodeUrl(
-      "Shopymol",
-      user.emailOrMobile,
-      secret
-    );
+    // Generate QR code
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
 
-    const qrCodeImage = await QRCode.toDataURL(qrCodeUrl);
     console.log("[Backend] 2FA QR code generated for:", normalizedInput);
-
-    res.json({ success: true, message: "Scan the QR code with Google Authenticator", qrCode: qrCodeImage, secret });
+    res.json({ success: true, message: "2FA QR code generated", qrCode: qrCodeUrl });
   } catch (err) {
     console.error("[Backend] 2FA Setup Error:", err.message);
-    res.status(500).json({ error: "Failed to set up 2FA" });
+    res.status(500).json({ error: "Failed to generate 2FA QR code" });
   }
 };
 
 const verify2FA = async (req, res) => {
-  const { emailOrMobile, otp } = req.body;
+  const { emailOrMobile, token } = req.body;
   let normalizedInput = emailOrMobile;
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
@@ -589,6 +585,7 @@ const verify2FA = async (req, res) => {
 
   try {
     console.log("[Backend] Verifying 2FA for:", normalizedInput);
+
     const user = await User.findOne({
       $or: [
         { emailOrMobile: normalizedInput },
@@ -596,21 +593,30 @@ const verify2FA = async (req, res) => {
       ],
     });
 
-    if (!user || !user.google2FASecret) {
-      return res.status(400).json({ error: "2FA not enabled for this user" });
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
     }
 
-    const isValid = google2fa.verifyKey(user.google2FASecret, otp, 1); // Window of 1 for 30-second OTP
-    if (!isValid) {
-      return res.status(400).json({ error: "Invalid 2FA OTP" });
+    if (!user.twoFactorSecret) {
+      return res.status(400).json({ error: "2FA not set up for this user" });
     }
 
-    user.is2FAEnabled = true;
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: "base32",
+      token,
+      window: 1, // Allow 1 step before/after for clock skew
+    });
+
+    if (!verified) {
+      return res.status(400).json({ error: "Invalid 2FA token" });
+    }
+
+    user.twoFactorEnabled = true;
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "1h" });
-    console.log("[Backend] 2FA verified for:", normalizedInput);
-    res.json({ success: true, message: "2FA verified successfully", token, emailOrMobile: user.emailOrMobile });
+    console.log("[Backend] 2FA verified successfully for:", normalizedInput);
+    res.json({ success: true, message: "2FA verified successfully" });
   } catch (err) {
     console.error("[Backend] 2FA Verification Error:", err.message);
     res.status(500).json({ error: "2FA verification failed" });
@@ -627,6 +633,7 @@ const disable2FA = async (req, res) => {
 
   try {
     console.log("[Backend] Disabling 2FA for:", normalizedInput);
+
     const user = await User.findOne({
       $or: [
         { emailOrMobile: normalizedInput },
@@ -638,8 +645,8 @@ const disable2FA = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    user.google2FASecret = null;
-    user.is2FAEnabled = false;
+    user.twoFactorSecret = null;
+    user.twoFactorEnabled = false;
     await user.save();
 
     console.log("[Backend] 2FA disabled for:", normalizedInput);

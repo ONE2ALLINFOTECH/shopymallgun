@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
   Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
-  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3, Key
+  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
 import api from "../api/api";
 import { Link } from "react-router-dom";
@@ -20,7 +20,7 @@ const UserDashboard = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState("otp");
-  const [userData, setUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "", is2FAEnabled: false });
+  const [userData, setUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFactorEnabled: false });
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [timer, setTimer] = useState(120);
@@ -34,11 +34,10 @@ const UserDashboard = () => {
     gender: "",
     emailOrMobile: ""
   });
-  const [show2FAPopup, setShow2FAPopup] = useState(false);
-  const [tempToken, setTempToken] = useState("");
+  const [show2FASetup, setShow2FASetup] = useState(false);
   const [qrCode, setQrCode] = useState("");
-  const [twoFAOtp, setTwoFAOtp] = useState(["", "", "", "", "", ""]);
-  const [twoFATimer, setTwoFATimer] = useState(30);
+  const [twoFactorToken, setTwoFactorToken] = useState(["", "", "", "", "", ""]);
+  const [show2FAVerification, setShow2FAVerification] = useState(false);
 
   useEffect(() => {
     let interval;
@@ -58,25 +57,6 @@ const UserDashboard = () => {
     }
     return () => clearInterval(interval);
   }, [otpSent, otpVerified, timer, otp]);
-
-  useEffect(() => {
-    let interval;
-    if (show2FAPopup && twoFATimer > 0) {
-      interval = setInterval(() => {
-        setTwoFATimer((prev) => {
-          if (prev <= 1) {
-            setTwoFAOtp(["", "", "", "", "", ""]);
-            return 30;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-    if (show2FAPopup && twoFAOtp.join("").length === 6) {
-      handleVerify2FA();
-    }
-    return () => clearInterval(interval);
-  }, [show2FAPopup, twoFATimer, twoFAOtp]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -150,7 +130,7 @@ const UserDashboard = () => {
         lastName: res.data.lastName || "",
         gender: res.data.gender || "",
         emailOrMobile: res.data.emailOrMobile || emailOrMobile,
-        is2FAEnabled: res.data.is2FAEnabled || false
+        twoFactorEnabled: res.data.twoFactorEnabled || false
       });
       setOtpVerified(true);
       setIsLoggedIn(true);
@@ -174,10 +154,17 @@ const UserDashboard = () => {
       console.log("[Password Login] Attempting login for:", emailOrMobile);
       const res = await api.post("/user/login", { emailOrMobile, password });
       console.log("[Password Login] Response:", res.data);
-      if (res.data.requires2FA) {
-        setTempToken(res.data.tempToken);
-        setShow2FAPopup(true);
-        showPopup("info", "Enter 2FA code from Google Authenticator");
+      if (res.data.twoFactorRequired) {
+        const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
+        setUserData({
+          firstName: profileRes.data.firstName || "",
+          lastName: profileRes.data.lastName || "",
+          gender: profileRes.data.gender || "",
+          emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
+          twoFactorEnabled: profileRes.data.twoFactorEnabled || false
+        });
+        setShow2FAVerification(true);
+        showPopup("info", "Please enter 2FA code");
       } else {
         const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
         console.log("[Password Login] Profile Data:", profileRes.data);
@@ -186,7 +173,7 @@ const UserDashboard = () => {
           lastName: profileRes.data.lastName || "",
           gender: profileRes.data.gender || "",
           emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
-          is2FAEnabled: profileRes.data.is2FAEnabled || false
+          twoFactorEnabled: profileRes.data.twoFactorEnabled || false
         });
         setIsLoggedIn(true);
         showPopup("success", res.data.message || "Login successful");
@@ -310,15 +297,14 @@ const UserDashboard = () => {
     setConfirmPassword("");
     setOtpSent(false);
     setOtpVerified(false);
-    setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "", is2FAEnabled: false });
+    setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFactorEnabled: false });
     setShowForgotPassword(false);
+    setShow2FASetup(false);
+    setQrCode("");
+    setTwoFactorToken(["", "", "", "", "", ""]);
+    setShow2FAVerification(false);
     setTimer(120);
     setCanResend(false);
-    setShow2FAPopup(false);
-    setTempToken("");
-    setQrCode("");
-    setTwoFAOtp(["", "", "", "", "", ""]);
-    setTwoFATimer(30);
     showPopup("success", "Logged out successfully");
   };
 
@@ -331,12 +317,12 @@ const UserDashboard = () => {
     }
   };
 
-  const handle2FAOtpChange = (index, value) => {
-    const newOtp = [...twoFAOtp];
-    newOtp[index] = value.slice(-1);
-    setTwoFAOtp(newOtp);
+  const handleTwoFactorTokenChange = (index, value) => {
+    const newToken = [...twoFactorToken];
+    newToken[index] = value.slice(-1);
+    setTwoFactorToken(newToken);
     if (value && index < 5) {
-      document.getElementById(`2fa-otp-input-${index + 1}`).focus();
+      document.getElementById(`2fa-input-${index + 1}`).focus();
     }
   };
 
@@ -360,7 +346,7 @@ const UserDashboard = () => {
         lastName: editData.lastName,
         gender: editData.gender,
         emailOrMobile: userData.emailOrMobile,
-        is2FAEnabled: userData.is2FAEnabled
+        twoFactorEnabled: userData.twoFactorEnabled
       });
       setIsEditing(false);
       showPopup("success", "Profile updated successfully");
@@ -405,52 +391,44 @@ const UserDashboard = () => {
     }
   };
 
-  const handleSend2FAOTP = async () => {
+  const handleSetup2FA = async () => {
     setLoading(true);
     try {
-      console.log("[2FA Setup] Requesting QR code for:", userData.emailOrMobile);
+      console.log("[Setup 2FA] Generating QR code for:", userData.emailOrMobile);
       const res = await api.post("/user/send-2fa-otp", { emailOrMobile: userData.emailOrMobile });
-      console.log("[2FA Setup] Response:", res.data);
-      if (res.data.qrCode && res.data.qrCode.startsWith("data:image/png;base64,")) {
-        setQrCode(res.data.qrCode);
-        setShow2FAPopup(true);
-        setTwoFATimer(30);
-        setTwoFAOtp(["", "", "", "", "", ""]);
-        showPopup("success", "Scan the QR code with Google Authenticator");
-      } else {
-        throw new Error("Invalid QR code format");
-      }
+      console.log("[Setup 2FA] Response:", res.data);
+      setQrCode(res.data.qrCode);
+      setShow2FASetup(true);
+      showPopup("success", "Scan the QR code with Google Authenticator");
     } catch (err) {
-      console.error("[2FA Setup] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to set up 2FA. Please try again.");
-      setQrCode("");
+      console.error("[Setup 2FA] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to setup 2FA");
     } finally {
       setLoading(false);
     }
   };
 
   const handleVerify2FA = async () => {
-    if (!twoFAOtp.join("").trim()) {
-      showPopup("error", "2FA OTP is required");
+    if (!twoFactorToken.join("").trim()) {
+      showPopup("error", "2FA code is required");
       return;
     }
     setLoading(true);
     try {
-      console.log("[Verify 2FA] Verifying for:", userData.emailOrMobile, "OTP:", twoFAOtp.join(""));
-      const res = await api.post("/user/api/verify-2fa", { emailOrMobile: userData.emailOrMobile, otp: twoFAOtp.join("") }, {
-        headers: { Authorization: `Bearer ${tempToken}` }
-      });
+      console.log("[Verify 2FA] Verifying for:", userData.emailOrMobile, "Token:", twoFactorToken.join(""));
+      const res = await api.post("/user/verify-2fa", { emailOrMobile: userData.emailOrMobile, token: twoFactorToken.join("") });
       console.log("[Verify 2FA] Response:", res.data);
-      setUserData({ ...userData, is2FAEnabled: true });
-      setIsLoggedIn(true);
-      setShow2FAPopup(false);
-      setTempToken("");
-      setTwoFAOtp(["", "", "", "", "", ""]);
-      setTwoFATimer(30);
+      setUserData({ ...userData, twoFactorEnabled: true });
+      setShow2FASetup(false);
+      setShow2FAVerification(false);
+      setTwoFactorToken(["", "", "", "", "", ""]);
+      if (!isLoggedIn) {
+        setIsLoggedIn(true);
+      }
       showPopup("success", res.data.message || "2FA verified successfully");
     } catch (err) {
       console.error("[Verify 2FA] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Invalid 2FA OTP");
+      showPopup("error", err.response?.data?.error || "Invalid 2FA code");
     } finally {
       setLoading(false);
     }
@@ -462,7 +440,8 @@ const UserDashboard = () => {
       console.log("[Disable 2FA] Disabling for:", userData.emailOrMobile);
       const res = await api.post("/user/disable-2fa", { emailOrMobile: userData.emailOrMobile });
       console.log("[Disable 2FA] Response:", res.data);
-      setUserData({ ...userData, is2FAEnabled: false });
+      setUserData({ ...userData, twoFactorEnabled: false });
+      setShow2FASetup(false);
       setQrCode("");
       showPopup("success", res.data.message || "2FA disabled successfully");
     } catch (err) {
@@ -483,7 +462,7 @@ const UserDashboard = () => {
         { label: "Profile Information", path: "/profile" },
         { label: "Manage Addresses", path: "/addresses" },
         { label: "PAN Card Information", path: "/pan" },
-        { label: "Two-Factor Authentication", path: "/2fa", onClick: userData.is2FAEnabled ? () => setShow2FAPopup(true) : handleSend2FAOTP },
+        { label: "Two-Factor Authentication", path: "/2fa", onClick: () => setShow2FASetup(true) },
       ],
     },
     {
@@ -580,14 +559,12 @@ const UserDashboard = () => {
                 {item.subItems && (
                   <div className="ml-8 space-y-1">
                     {item.subItems.map((subItem, subIndex) => (
-                      <div key={subIndex} className="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer rounded">
-                        {subItem.onClick ? (
-                          <button onClick={subItem.onClick} className="text-sm text-gray-600 hover:text-blue-600">
-                            {subItem.label}
-                          </button>
-                        ) : (
-                          <span className="text-sm text-gray-600">{subItem.label}</span>
-                        )}
+                      <div
+                        key={subIndex}
+                        className="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer rounded"
+                        onClick={subItem.onClick}
+                      >
+                        <span className="text-sm text-gray-600">{subItem.label}</span>
                         {subItem.amount && <span className="text-sm font-medium">{subItem.amount}</span>}
                       </div>
                     ))}
@@ -613,6 +590,118 @@ const UserDashboard = () => {
             <span className="text-sm">Logout</span>
           </button>
         </div>
+      </div>
+    </div>
+  );
+
+  const TwoFASetupSection = () => (
+    <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-lg font-semibold text-gray-800">Two-Factor Authentication</h1>
+        <button
+          onClick={() => setShow2FASetup(false)}
+          className="text-gray-600 hover:text-gray-800"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      {userData.twoFactorEnabled ? (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Two-Factor Authentication is enabled.</p>
+          <button
+            onClick={handleDisable2FA}
+            disabled={loading}
+            className="bg-red-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 flex items-center space-x-2"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <>
+                <Shield className="w-4 h-4" />
+                <span>Disable 2FA</span>
+              </>
+            )}
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">Scan this QR code with Google Authenticator to enable 2FA.</p>
+          {qrCode && <img src={qrCode} alt="2FA QR Code" className="mx-auto w-48 h-48" />}
+          <div className="flex justify-center space-x-2 mb-2">
+            {twoFactorToken.map((digit, index) => (
+              <input
+                key={index}
+                id={`2fa-input-${index}`}
+                type="text"
+                value={digit}
+                onChange={(e) => handleTwoFactorTokenChange(index, e.target.value)}
+                maxLength={1}
+                className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
+              />
+            ))}
+          </div>
+          <button
+            onClick={handleVerify2FA}
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+          >
+            {loading ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                <span>Verify 2FA Code</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const TwoFAVerificationPopup = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-lg p-4 w-80">
+        <div className="flex justify-between items-center mb-2">
+          <h2 className="text-lg font-semibold text-blue-700">2FA Verification</h2>
+          <button
+            onClick={() => {
+              setShow2FAVerification(false);
+              setTwoFactorToken(["", "", "", "", "", ""]);
+            }}
+            className="text-blue-500 hover:text-blue-700"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <p className="text-sm text-gray-600 mb-2">Enter the code from Google Authenticator</p>
+        <div className="flex justify-center space-x-2 mb-2">
+          {twoFactorToken.map((digit, index) => (
+            <input
+              key={index}
+              id={`2fa-input-${index}`}
+              type="text"
+              value={digit}
+              onChange={(e) => handleTwoFactorTokenChange(index, e.target.value)}
+              maxLength={1}
+              className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
+            />
+          ))}
+        </div>
+        <button
+          onClick={handleVerify2FA}
+          disabled={loading}
+          className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+        >
+          {loading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              <span>Verify</span>
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
@@ -774,39 +863,6 @@ const UserDashboard = () => {
         </div>
 
         <div className="border-t pt-4">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">Two-Factor Authentication</h3>
-            <button
-              onClick={userData.is2FAEnabled ? handleDisable2FA : handleSend2FAOTP}
-              disabled={loading}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-1.5 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center space-x-2"
-            >
-              <Key className="w-4 h-4" />
-              <span>{userData.is2FAEnabled ? "Disable 2FA" : "Enable 2FA"}</span>
-            </button>
-          </div>
-          {qrCode ? (
-            <div className="mb-4 text-center">
-              <p className="text-sm text-gray-600 mb-2">Scan this QR code with Google Authenticator to enable 2FA:</p>
-              <img
-                src={qrCode}
-                alt="2FA QR Code"
-                className="w-48 h-48 mx-auto border-2 border-gray-200 rounded-lg"
-                onError={() => {
-                  setQrCode("");
-                  showPopup("error", "Failed to load QR code. Please try enabling 2FA again.");
-                }}
-              />
-              <p className="text-xs text-gray-500 mt-2">After scanning, enter the 6-digit code in the popup.</p>
-            </div>
-          ) : userData.is2FAEnabled ? (
-            <p className="text-sm text-gray-600">2FA is enabled. Use Google Authenticator to log in.</p>
-          ) : (
-            <p className="text-sm text-gray-600">Click 'Enable 2FA' to set up two-factor authentication.</p>
-          )}
-        </div>
-
-        <div className="border-t pt-4">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">FAQs</h3>
           <div className="space-y-4">
             <div>
@@ -868,7 +924,7 @@ const UserDashboard = () => {
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="flex items-center space-x-2 sm:space-x-3">
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${popup.type === "success" ? "bg-green-100" : popup.type === "info" ? "bg-blue-100" : "bg-red-100"}`}>
-                  {popup.type === "success" ? <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" /> : popup.type === "info" ? <Key className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" /> : <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />}
+                  {popup.type === "success" ? <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" /> : popup.type === "info" ? <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-blue-600" /> : <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />}
                 </div>
                 <h3 className={`font-semibold text-base sm:text-lg ${popup.type === "success" ? "text-green-800" : popup.type === "info" ? "text-blue-800" : "text-red-800"}`}>{popup.type === "success" ? "Success!" : popup.type === "info" ? "Info" : "Error!"}</h3>
               </div>
@@ -888,7 +944,7 @@ const UserDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-4 w-80">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold text-blue-700">Login</h2>
+              <h2 className="text-lg font-semibold text-blue-700">{showForgotPassword ? "Reset Password OTP" : "Login OTP"}</h2>
               <button onClick={() => { setShowOtpPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
                 <X className="w-5 h-5" />
               </button>
@@ -914,46 +970,32 @@ const UserDashboard = () => {
             )}
             {canResend && (
               <button
-                onClick={handleResendOTP}
+                onClick={showForgotPassword ? handleForgotPasswordOTP : handleResendOTP}
                 disabled={loading}
                 className="w-full text-xs text-orange-500 hover:text-orange-700 mt-2"
               >
                 Resend OTP
               </button>
             )}
+            <button
+              onClick={showForgotPassword ? handleVerifyForgotPasswordOTP : handleVerifyOTP}
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-green-700 hover:to-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2 mt-2"
+            >
+              {loading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Verify OTP</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}
 
-      {show2FAPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg shadow-lg p-4 w-80">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold text-blue-700">Two-Factor Authentication</h2>
-              <button onClick={() => { setShow2FAPopup(false); setTwoFAOtp(["", "", "", "", "", ""]); setTwoFATimer(30); }} className="text-blue-500 hover:text-blue-700">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <p className="text-sm text-gray-600 mb-2">
-              Enter 2FA Code from Google Authenticator
-            </p>
-            <div className="flex justify-center space-x-2 mb-2">
-              {twoFAOtp.map((digit, index) => (
-                <input
-                  key={index}
-                  id={`2fa-otp-input-${index}`}
-                  type="text"
-                  value={digit}
-                  onChange={(e) => handle2FAOtpChange(index, e.target.value)}
-                  maxLength={1}
-                  className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
-                />
-              ))}
-            </div>
-            <p className="text-xs text-blue-500 mb-2 text-center">Code expires in {twoFATimer}s</p>
-          </div>
-        </div>
-      )}
+      {show2FAVerification && <TwoFAVerificationPopup />}
 
       {!isLoggedIn ? (
         <div className="flex items-center justify-center min-h-screen p-2 sm:p-4">
@@ -965,275 +1007,208 @@ const UserDashboard = () => {
               <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {showForgotPassword ? "Reset Password" : "Login to Shopymol"}
               </h1>
-              <p className="text-gray-600 mt-2 text-sm sm:text-base px-2">
-                {showForgotPassword ? "Create a new password" : "Choose your preferred login method"}
+              <p className="text-gray-600 mt-2 text-sm sm:text-base">
+                {showForgotPassword
+                  ? "Enter your email or mobile number to reset your password"
+                  : "Login with OTP or Password"}
               </p>
             </div>
 
-            <div className="bg-white rounded-2xl sm:rounded-3xl shadow-xl p-4 sm:p-6 lg:p-8 border border-gray-100 backdrop-blur-sm">
-              {showForgotPassword ? (
-                <div className="space-y-4 sm:space-y-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={emailOrMobile}
-                        onChange={(e) => setEmailOrMobile(e.target.value)}
-                        className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                        placeholder="Enter email or mobile number"
-                      />
-                    </div>
-                  </div>
-
-                  {!otpSent ? (
-                    <button
-                      onClick={handleForgotPasswordOTP}
-                      disabled={loading}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-                    >
-                      {loading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                          <span>Send OTP</span>
-                        </>
-                      )}
-                    </button>
-                  ) : !otpVerified ? (
-                    <>
-                      <div className="flex justify-center space-x-2 mb-2">
-                        {otp.map((digit, index) => (
-                          <input
-                            key={index}
-                            id={`otp-input-${index}`}
-                            type="text"
-                            value={digit}
-                            onChange={(e) => handleOtpChange(index, e.target.value)}
-                            maxLength={1}
-                            className="w-10 h-10 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
-                          />
-                        ))}
-                      </div>
-                      {timer > 0 && (
-                        <p className="text-xs text-blue-500 mb-2 text-center">
-                          Resend OTP in {formatTime(timer)}
-                        </p>
-                      )}
-                      {canResend && (
-                        <button
-                          onClick={handleResendOTP}
-                          disabled={loading}
-                          className="w-full text-xs text-orange-500 hover:text-orange-700 mt-2"
-                        >
-                          Resend OTP
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                          </div>
-                          <input
-                            type={showNewPassword ? "text" : "password"}
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full pl-9 sm:pl-10 pr-10 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                            placeholder="Enter new password"
-                          />
-                          <button
-                            onClick={() => setShowNewPassword(!showNewPassword)}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                          >
-                            {showNewPassword ? (
-                              <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                            ) : (
-                              <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
-                        <div className="relative">
-                          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                          </div>
-                          <input
-                            type={showConfirmPassword ? "text" : "password"}
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="w-full pl-9 sm:pl-10 pr-10 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                            placeholder="Confirm new password"
-                          />
-                          <button
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                          >
-                            {showConfirmPassword ? (
-                              <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                            ) : (
-                              <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                      <button
-                        onClick={handleResetPassword}
-                        disabled={loading}
-                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-                      >
-                        {loading ? (
-                          <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                        ) : (
-                          <>
-                            <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span>Reset Password</span>
-                          </>
-                        )}
-                      </button>
-                    </>
-                  )}
-                  <button
-                    onClick={() => {
-                      setShowForgotPassword(false);
-                      setOtpSent(false);
-                      setOtpVerified(false);
-                      setOtp(["", "", "", "", "", ""]);
-                      setNewPassword("");
-                      setConfirmPassword("");
-                    }}
-                    className="w-full text-sm text-blue-600 hover:text-blue-800 mt-2"
-                  >
-                    Back to Login
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4 sm:space-y-6">
-                  <div className="flex space-x-4 mb-4">
+            <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8 border border-gray-100">
+              {!showForgotPassword ? (
+                <>
+                  <div className="flex mb-4">
                     <button
                       onClick={() => setLoginMethod("otp")}
-                      className={`flex-1 py-2 font-semibold text-sm sm:text-base rounded-lg sm:rounded-xl ${
-                        loginMethod === "otp"
-                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                          : "bg-gray-100 text-gray-700"
+                      className={`flex-1 py-2 text-sm sm:text-base font-medium ${
+                        loginMethod === "otp" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"
                       }`}
                     >
                       OTP Login
                     </button>
                     <button
                       onClick={() => setLoginMethod("password")}
-                      className={`flex-1 py-2 font-semibold text-sm sm:text-base rounded-lg sm:rounded-xl ${
-                        loginMethod === "password"
-                          ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                          : "bg-gray-100 text-gray-700"
+                      className={`flex-1 py-2 text-sm sm:text-base font-medium ${
+                        loginMethod === "password" ? "border-b-2 border-blue-600 text-blue-600" : "text-gray-600"
                       }`}
                     >
                       Password Login
                     </button>
                   </div>
 
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                      </div>
-                      <input
-                        type="text"
-                        value={emailOrMobile}
-                        onChange={(e) => setEmailOrMobile(e.target.value)}
-                        className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                        placeholder="Enter email or mobile number"
-                      />
-                    </div>
-                  </div>
-
-                  {loginMethod === "password" && (
+                  <div className="space-y-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Email or Mobile Number
+                      </label>
                       <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                        </div>
                         <input
-                          type={showPassword ? "text" : "password"}
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-9 sm:pl-10 pr-10 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
-                          placeholder="Enter password"
+                          type="text"
+                          value={emailOrMobile}
+                          onChange={(e) => setEmailOrMobile(e.target.value)}
+                          className="w-full p-2 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
+                          placeholder="Enter email or mobile"
                         />
-                        <button
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                          ) : (
-                            <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
-                          )}
-                        </button>
+                        <Mail className="absolute right-3 top-2.5 w-5 h-5 text-gray-400" />
                       </div>
                     </div>
+
+                    {loginMethod === "password" && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <div className="relative">
+                          <input
+                            type={showPassword ? "text" : "password"}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full p-2 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
+                            placeholder="Enter password"
+                          />
+                          <button
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-2.5 text-gray-400"
+                          >
+                            {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <button
+                      onClick={loginMethod === "otp" ? handleSendOTP : handlePasswordLogin}
+                      disabled={loading}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                    >
+                      {loading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" />
+                          <span>{loginMethod === "otp" ? "Send OTP" : "Login"}</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      onClick={() => setShowForgotPassword(true)}
+                      className="w-full text-sm text-blue-600 hover:text-blue-800 mt-2"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  {!otpVerified ? (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Email or Mobile Number
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={emailOrMobile}
+                            onChange={(e) => setEmailOrMobile(e.target.value)}
+                            className="w-full p-2 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
+                            placeholder="Enter email or mobile"
+                          />
+                          <Mail className="absolute right-3 top-2.5 w-5 h-5 text-gray-400" />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleForgotPasswordOTP}
+                        disabled={loading}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                      >
+                        {loading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            <span>Send OTP</span>
+                          </>
+                        )}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+                        <div className="relative">
+                          <input
+                            type={showNewPassword ? "text" : "password"}
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="w-full p-2 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
+                            placeholder="Enter new password"
+                          />
+                          <button
+                            onClick={() => setShowNewPassword(!showNewPassword)}
+                            className="absolute right-3 top-2.5 text-gray-400"
+                          >
+                            {showNewPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? "text" : "password"}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full p-2 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
+                            placeholder="Confirm new password"
+                          />
+                          <button
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-3 top-2.5 text-gray-400"
+                          >
+                            {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleResetPassword}
+                        disabled={loading}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                      >
+                        {loading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4" />
+                            <span>Reset Password</span>
+                          </>
+                        )}
+                      </button>
+                    </>
                   )}
 
                   <button
-                    onClick={loginMethod === "otp" ? handleSendOTP : handlePasswordLogin}
-                    disabled={loading}
-                    className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
-                  >
-                    {loading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                    ) : (
-                      <>
-                        {loginMethod === "otp" ? (
-                          <>
-                            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span>Send OTP</span>
-                          </>
-                        ) : (
-                          <>
-                            <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
-                            <span>Login</span>
-                          </>
-                        )}
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => setShowForgotPassword(true)}
+                    onClick={() => setShowForgotPassword(false)}
                     className="w-full text-sm text-blue-600 hover:text-blue-800 mt-2"
                   >
-                    Forgot Password?
+                    Back to Login
                   </button>
-
-                  <div className="text-center">
-                    <span className="text-sm text-gray-600">New to Shopymol? </span>
-                    <Link to="/signup" className="text-sm text-blue-600 hover:text-blue-800">
-                      Create an account
-                    </Link>
-                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
       ) : (
-        <div className="relative">
-          <NavBar />
-          <div className="flex">
-            <Sidebar />
-            <div className="flex-1 p-4 sm:p-6 lg:p-8">
-              <PersonalInfoSection />
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <div className="flex-1">
+            <NavBar />
+            <div className="p-4 sm:p-6 md:p-8">
+              <div className="max-w-4xl mx-auto">
+                {show2FASetup ? <TwoFASetupSection /> : <PersonalInfoSection />}
+              </div>
             </div>
           </div>
         </div>
