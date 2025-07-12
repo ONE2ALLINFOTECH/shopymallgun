@@ -1,29 +1,10 @@
 import React, { useState, useEffect } from "react";
 import {
-  Mail,
-  Shield,
-  CheckCircle,
-  AlertCircle,
-  X,
-  Send,
-  Clock,
-  LogOut,
-  RefreshCw,
-  User,
-  Package,
-  CreditCard,
-  ShoppingCart,
-  Search,
-  ChevronRight,
-  Menu,
-  Lock,
-  Eye,
-  EyeOff,
-  Edit3,
+  Mail, Shield, CheckCircle, AlertCircle, X, Send, Clock, LogOut, RefreshCw, User, Package, CreditCard,
+  ShoppingCart, Search, ChevronRight, Menu, Lock, Eye, EyeOff, Edit3
 } from "lucide-react";
-import QRCode from "react-qr-code";
-import api from "../api/api";
-import { Link } from "react-router-dom";
+import api from "../api/api"; // Ensure this points to your backend (e.g., http://localhost:5000)
+import { Link } from "react-router-dom"; // Import Link from react-router-dom
 
 const UserDashboard = () => {
   const [emailOrMobile, setEmailOrMobile] = useState("");
@@ -31,7 +12,6 @@ const UserDashboard = () => {
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [totpCode, setTotpCode] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -40,29 +20,25 @@ const UserDashboard = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [loginMethod, setLoginMethod] = useState("otp");
-  const [userData, setUserData] = useState({
-    firstName: "",
-    lastName: "",
-    gender: "",
-    emailOrMobile: "",
-    twoFactorEnabled: false,
-  });
+  const [userData, setUserData] = useState({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFAEnabled: false }); // Added twoFAEnabled
   const [loading, setLoading] = useState(false);
   const [popup, setPopup] = useState({ show: false, type: "", message: "" });
   const [timer, setTimer] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
-  const [showTotpPopup, setShowTotpPopup] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     firstName: "",
     lastName: "",
     gender: "",
-    emailOrMobile: "",
+    emailOrMobile: ""
   });
-  const [qrCodeUrl, setQrCodeUrl] = useState("");
-  const [twoFactorSecret, setTwoFactorSecret] = useState("");
+  const [show2FAPopup, setShow2FAPopup] = useState(false); // Added for 2FA setup
+  const [qrCodeUrl, setQrCodeUrl] = useState(""); // Added for QR code
+  const [twoFACode, setTwoFACode] = useState(""); // Added for 2FA code input
+  const [twoFARequired, setTwoFARequired] = useState(false); // Added for 2FA login flow
+  const [twoFAUserId, setTwoFAUserId] = useState(""); // Added to store userId for 2FA verification
 
   useEffect(() => {
     let interval;
@@ -89,7 +65,7 @@ const UserDashboard = () => {
         firstName: userData.firstName || "",
         lastName: userData.lastName || "",
         gender: userData.gender || "",
-        emailOrMobile: userData.emailOrMobile || "",
+        emailOrMobile: userData.emailOrMobile || ""
       });
     }
   }, [userData]);
@@ -114,20 +90,10 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       console.log("[Send OTP] Requesting OTP for:", emailOrMobile);
-      const res = await api.post("/user/send-otp", {
-        emailOrMobile,
-        isRegistration: false,
-      });
+      const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
       console.log("[Send OTP] Response:", res.data);
-      if (
-        res.data &&
-        res.data.error &&
-        res.data.error.includes("not registered")
-      ) {
-        showPopup(
-          "error",
-          "Aapka email ya number nahi hai, pehle registration karo"
-        );
+      if (res.data && res.data.error && res.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
         showPopup("success", res.data.message || "OTP sent successfully");
@@ -138,14 +104,8 @@ const UserDashboard = () => {
       }
     } catch (err) {
       console.error("[Send OTP] Error:", err.response?.data || err.message);
-      if (
-        err.response?.data?.error &&
-        err.response.data.error.includes("not registered")
-      ) {
-        showPopup(
-          "error",
-          "Aapka email ya number nahi hai, pehle registration karo"
-        );
+      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
         showPopup("error", err.response?.data?.error || "Failed to send OTP");
@@ -162,78 +122,24 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
-      console.log(
-        "[Verify OTP] Verifying for:",
-        emailOrMobile,
-        "OTP:",
-        otp.join("")
-      );
-      const res = await api.post("/user/verify-otp", {
-        emailOrMobile,
-        otp: otp.join(""),
-      });
-      console.log("[Verify OTP] Response:", res.data);
-      const profileRes = await api.get(
-        `/user/profile?emailOrMobile=${emailOrMobile}`
-      );
-      console.log("[Verify OTP] Profile Data:", profileRes.data);
+      console.log("[Verify OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      await api.post("/user/verify-otp", { emailOrMobile, otp: otp.join("") });
+      const res = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
+      console.log("[Verify OTP] Profile Data:", res.data);
       setUserData({
-        firstName: profileRes.data.firstName || "",
-        lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
-        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
-        twoFactorEnabled: profileRes.data.twoFactorEnabled || false,
+        firstName: res.data.firstName || "",
+        lastName: res.data.lastName || "",
+        gender: res.data.gender || "",
+        emailOrMobile: res.data.emailOrMobile || emailOrMobile,
+        twoFAEnabled: res.data.twoFAEnabled || false // Added
       });
       setOtpVerified(true);
+      setIsLoggedIn(true);
       setShowOtpPopup(false);
-      if (res.data.twoFactorEnabled) {
-        setShowTotpPopup(true);
-      } else {
-        setIsLoggedIn(true);
-        showPopup("success", "OTP verified successfully");
-      }
+      showPopup("success", "OTP verified successfully");
     } catch (err) {
       console.error("[Verify OTP] Error:", err.response?.data || err.message);
-      showPopup(
-        "error",
-        err.response?.data?.error || "Please enter the correct OTP"
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyTotp = async () => {
-    if (!totpCode.trim()) {
-      showPopup("error", "TOTP code is required");
-      return;
-    }
-    setLoading(true);
-    try {
-      console.log(
-        "[Verify TOTP] Verifying for:",
-        emailOrMobile,
-        "TOTP:",
-        totpCode
-      );
-      const res = await api.post("/user/login", { emailOrMobile, totpCode });
-      console.log("[Verify TOTP] Response:", res.data);
-      const profileRes = await api.get(
-        `/user/profile?emailOrMobile=${emailOrMobile}`
-      );
-      setUserData({
-        firstName: profileRes.data.firstName || "",
-        lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
-        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
-        twoFactorEnabled: profileRes.data.twoFactorEnabled || false,
-      });
-      setIsLoggedIn(true);
-      setShowTotpPopup(false);
-      showPopup("success", "TOTP verified successfully");
-    } catch (err) {
-      console.error("[Verify TOTP] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Invalid TOTP code");
+      showPopup("error", err.response?.data?.error || "Please enter the correct OTP");
     } finally {
       setLoading(false);
     }
@@ -249,28 +155,25 @@ const UserDashboard = () => {
       console.log("[Password Login] Attempting login for:", emailOrMobile);
       const res = await api.post("/user/login", { emailOrMobile, password });
       console.log("[Password Login] Response:", res.data);
-      const profileRes = await api.get(
-        `/user/profile?emailOrMobile=${emailOrMobile}`
-      );
-      console.log("[Password Login] Profile Data:", profileRes.data);
-      setUserData({
-        firstName: profileRes.data.firstName || "",
-        lastName: profileRes.data.lastName || "",
-        gender: profileRes.data.gender || "",
-        emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
-        twoFactorEnabled: profileRes.data.twoFactorEnabled || false,
-      });
-      if (profileRes.data.twoFactorEnabled) {
-        setShowTotpPopup(true);
+      if (res.data.twoFARequired) {
+        setTwoFARequired(true);
+        setTwoFAUserId(res.data.userId);
+        setShow2FAPopup(true); // Show 2FA popup
       } else {
+        const profileRes = await api.get(`/user/profile?emailOrMobile=${emailOrMobile}`);
+        console.log("[Password Login] Profile Data:", profileRes.data);
+        setUserData({
+          firstName: profileRes.data.firstName || "",
+          lastName: profileRes.data.lastName || "",
+          gender: profileRes.data.gender || "",
+          emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
+          twoFAEnabled: profileRes.data.twoFAEnabled || false // Added
+        });
         setIsLoggedIn(true);
         showPopup("success", res.data.message || "Login successful");
       }
     } catch (err) {
-      console.error(
-        "[Password Login] Error:",
-        err.response?.data || err.message
-      );
+      console.error("[Password Login] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
@@ -281,10 +184,7 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       console.log("[Resend OTP] Resending OTP to:", emailOrMobile);
-      const res = await api.post("/user/send-otp", {
-        emailOrMobile,
-        isRegistration: false,
-      });
+      const res = await api.post("/user/send-otp", { emailOrMobile, isRegistration: false });
       console.log("[Resend OTP] Response:", res.data);
       showPopup("success", "OTP resent successfully");
       setTimer(120);
@@ -308,15 +208,8 @@ const UserDashboard = () => {
       console.log("[Forgot Password OTP] Sending OTP to:", emailOrMobile);
       const res = await api.post("/user/forgot/send-otp", { emailOrMobile });
       console.log("[Forgot Password OTP] Response:", res.data);
-      if (
-        res.data &&
-        res.data.error &&
-        res.data.error.includes("not registered")
-      ) {
-        showPopup(
-          "error",
-          "Aapka email ya number nahi hai, pehle registration karo"
-        );
+      if (res.data && res.data.error && res.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
         showPopup("success", res.data.message || "OTP sent successfully");
@@ -326,18 +219,9 @@ const UserDashboard = () => {
         setShowOtpPopup(true);
       }
     } catch (err) {
-      console.error(
-        "[Forgot Password OTP] Error:",
-        err.response?.data || err.message
-      );
-      if (
-        err.response?.data?.error &&
-        err.response.data.error.includes("not registered")
-      ) {
-        showPopup(
-          "error",
-          "Aapka email ya number nahi hai, pehle registration karo"
-        );
+      console.error("[Forgot Password OTP] Error:", err.response?.data || err.message);
+      if (err.response?.data?.error && err.response.data.error.includes("not registered")) {
+        showPopup("error", "Aapka email ya number nahi hai, pehle registration karo");
         setOtpSent(false);
       } else {
         showPopup("error", err.response?.data?.error || "Failed to send OTP");
@@ -354,28 +238,14 @@ const UserDashboard = () => {
     }
     setLoading(true);
     try {
-      console.log(
-        "[Verify Forgot Password OTP] Verifying for:",
-        emailOrMobile,
-        "OTP:",
-        otp.join("")
-      );
-      const res = await api.post("/user/forgot/verify-otp", {
-        emailOrMobile,
-        otp: otp.join(""),
-      });
+      console.log("[Verify Forgot Password OTP] Verifying for:", emailOrMobile, "OTP:", otp.join(""));
+      const res = await api.post("/user/forgot/verify-otp", { emailOrMobile, otp: otp.join("") });
       console.log("[Verify Forgot Password OTP] Response:", res.data);
       showPopup("success", res.data.message || "OTP verified successfully");
       setOtpVerified(true);
     } catch (err) {
-      console.error(
-        "[Verify Forgot Password OTP] Error:",
-        err.response?.data || err.message
-      );
-      showPopup(
-        "error",
-        err.response?.data?.error || "OTP verification failed"
-      );
+      console.error("[Verify Forgot Password OTP] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "OTP verification failed");
     } finally {
       setLoading(false);
     }
@@ -393,10 +263,7 @@ const UserDashboard = () => {
     setLoading(true);
     try {
       console.log("[Reset Password] Resetting password for:", emailOrMobile);
-      const res = await api.post("/user/forgot/reset-password", {
-        emailOrMobile,
-        password: newPassword,
-      });
+      const res = await api.post("/user/forgot/reset-password", { emailOrMobile, password: newPassword });
       console.log("[Reset Password] Response:", res.data);
       showPopup("success", res.data.message || "Password reset successfully");
       setTimeout(() => {
@@ -405,54 +272,10 @@ const UserDashboard = () => {
         setConfirmPassword("");
         setOtpSent(false);
         setOtpVerified(false);
-        setShowOtpPopup(false);
       }, 1500);
     } catch (err) {
-      console.error(
-        "[Reset Password] Error:",
-        err.response?.data || err.message
-      );
+      console.error("[Reset Password] Error:", err.response?.data || err.message);
       showPopup("error", err.response?.data?.error || "Password reset failed");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEnableTwoFactor = async () => {
-    setLoading(true);
-    try {
-      console.log("[Enable 2FA] Enabling for:", userData.emailOrMobile);
-      const res = await api.post("/user/enable-2fa", {
-        emailOrMobile: userData.emailOrMobile,
-      });
-      console.log("[Enable 2FA] Response:", res.data);
-      setQrCodeUrl(res.data.qrCodeUrl);
-      setTwoFactorSecret(res.data.secret);
-      setUserData({ ...userData, twoFactorEnabled: true });
-      showPopup("success", "Scan the QR code with Google Authenticator");
-    } catch (err) {
-      console.error("[Enable 2FA] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to enable 2FA");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisableTwoFactor = async () => {
-    setLoading(true);
-    try {
-      console.log("[Disable 2FA] Disabling for:", userData.emailOrMobile);
-      const res = await api.post("/user/disable-2fa", {
-        emailOrMobile: userData.emailOrMobile,
-      });
-      console.log("[Disable 2FA] Response:", res.data);
-      setUserData({ ...userData, twoFactorEnabled: false });
-      setQrCodeUrl("");
-      setTwoFactorSecret("");
-      showPopup("success", "2FA disabled successfully");
-    } catch (err) {
-      console.error("[Disable 2FA] Error:", err.response?.data || err.message);
-      showPopup("error", err.response?.data?.error || "Failed to disable 2FA");
     } finally {
       setLoading(false);
     }
@@ -466,28 +289,23 @@ const UserDashboard = () => {
     setPassword("");
     setNewPassword("");
     setConfirmPassword("");
-    setTotpCode("");
     setOtpSent(false);
     setOtpVerified(false);
-    setShowTotpPopup(false);
-    setUserData({
-      firstName: "",
-      lastName: "",
-      gender: "",
-      emailOrMobile: "",
-      twoFactorEnabled: false,
-    });
+    setUserData({ firstName: "", lastName: "", gender: "", emailOrMobile: "", twoFAEnabled: false }); // Reset twoFAEnabled
     setShowForgotPassword(false);
     setTimer(120);
     setCanResend(false);
-    setQrCodeUrl("");
-    setTwoFactorSecret("");
+    setShow2FAPopup(false); // Added
+    setTwoFACode(""); // Added
+    setTwoFARequired(false); // Added
+    setTwoFAUserId(""); // Added
+    setQrCodeUrl(""); // Added
     showPopup("success", "Logged out successfully");
   };
 
   const handleOtpChange = (index, value) => {
     const newOtp = [...otp];
-    newOtp[index] = value.slice(-1);
+    newOtp[index] = value.slice(-1); // Only take the last character
     setOtp(newOtp);
     if (value && index < 5) {
       document.getElementById(`otp-input-${index + 1}`).focus();
@@ -503,7 +321,7 @@ const UserDashboard = () => {
     try {
       console.log("[Save Profile] Updating profile for:", emailOrMobile);
       const res = await api.post("/user/profile-info", {
-        emailOrMobile: userData.emailOrMobile,
+        emailOrMobile: userData.emailOrMobile, // Use original emailOrMobile for identification
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
@@ -513,76 +331,105 @@ const UserDashboard = () => {
         firstName: editData.firstName,
         lastName: editData.lastName,
         gender: editData.gender,
-        emailOrMobile: userData.emailOrMobile,
-        twoFactorEnabled: res.data.data.twoFactorEnabled,
+        emailOrMobile: userData.emailOrMobile, // Preserve original emailOrMobile
+        twoFAEnabled: userData.twoFAEnabled // Preserve 2FA status
       });
       setIsEditing(false);
       showPopup("success", "Profile updated successfully");
     } catch (err) {
       console.error("[Save Profile] Error:", err.response?.data || err.message);
-      showPopup(
-        "error",
-        err.response?.data?.error || "Failed to update profile"
-      );
+      showPopup("error", err.response?.data?.error || "Failed to update profile");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeactivateAccount = async () => {
-    if (!window.confirm("Are you sure you want to deactivate your account?"))
-      return;
     setLoading(true);
     try {
-      console.log(
-        "[Deactivate Account] Deactivating for:",
-        userData.emailOrMobile
-      );
-      const res = await api.post("/user/deactivate", {
-        emailOrMobile: userData.emailOrMobile,
-      });
+      console.log("[Deactivate Account] Deactivating for:", userData.emailOrMobile);
+      const res = await api.post("/user/deactivate", { emailOrMobile: userData.emailOrMobile });
       console.log("[Deactivate Account] Response:", res.data);
       handleLogout();
       showPopup("success", "Account deactivated successfully");
     } catch (err) {
-      console.error(
-        "[Deactivate Account] Error:",
-        err.response?.data || err.message
-      );
-      showPopup(
-        "error",
-        err.response?.data?.error || "Failed to deactivate account"
-      );
+      console.error("[Deactivate Account] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to deactivate account");
     } finally {
       setLoading(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (
-      !window.confirm(
-        "Are you sure you want to delete your account? This cannot be undone."
-      )
-    )
-      return;
+    if (!window.confirm("Are you sure you want to delete your account? This cannot be undone.")) return;
     setLoading(true);
     try {
       console.log("[Delete Account] Deleting for:", userData.emailOrMobile);
-      const res = await api.post("/user/delete", {
-        emailOrMobile: userData.emailOrMobile,
-      });
+      const res = await api.post("/user/delete", { emailOrMobile: userData.emailOrMobile });
       console.log("[Delete Account] Response:", res.data);
       handleLogout();
       showPopup("success", "Account deleted successfully");
     } catch (err) {
-      console.error(
-        "[Delete Account] Error:",
-        err.response?.data || err.message
-      );
-      showPopup(
-        "error",
-        err.response?.data?.error || "Failed to delete account"
-      );
+      console.error("[Delete Account] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to delete account");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New 2FA Setup Handler
+  const handleSetup2FA = async () => {
+    setLoading(true);
+    try {
+      console.log("[Setup 2FA] Initiating for:", userData.emailOrMobile);
+      const res = await api.post("/user/setup-2fa", { emailOrMobile: userData.emailOrMobile });
+      console.log("[Setup 2FA] Response:", res.data);
+      setQrCodeUrl(res.data.qrCodeUrl);
+      setShow2FAPopup(true);
+      showPopup("success", "Scan the QR code with Google Authenticator");
+    } catch (err) {
+      console.error("[Setup 2FA] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Failed to setup 2FA");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // New 2FA Verification Handler
+  const handleVerify2FA = async () => {
+    if (!twoFACode.trim()) {
+      showPopup("error", "2FA code is required");
+      return;
+    }
+    setLoading(true);
+    try {
+      console.log("[Verify 2FA] Verifying for:", userData.emailOrMobile || emailOrMobile, "Code:", twoFACode);
+      const res = await api.post("/user/verify-2fa", {
+        emailOrMobile: userData.emailOrMobile || emailOrMobile,
+        token: twoFACode,
+      });
+      console.log("[Verify 2FA] Response:", res.data);
+      setShow2FAPopup(false);
+      setTwoFACode("");
+      if (twoFARequired) {
+        // Complete login after 2FA verification
+        const profileRes = await api.get(`/user/profile?emailOrMobile=${userData.emailOrMobile || emailOrMobile}`);
+        setUserData({
+          firstName: profileRes.data.firstName || "",
+          lastName: profileRes.data.lastName || "",
+          gender: profileRes.data.gender || "",
+          emailOrMobile: profileRes.data.emailOrMobile || emailOrMobile,
+          twoFAEnabled: profileRes.data.twoFAEnabled || false
+        });
+        setIsLoggedIn(true);
+        setTwoFARequired(false);
+        setTwoFAUserId("");
+      }
+      setQrCodeUrl("");
+      showPopup("success", res.data.message || "2FA verified successfully");
+    } catch (err) {
+      console.error("[Verify 2FA] Error:", err.response?.data || err.message);
+      showPopup("error", err.response?.data?.error || "Invalid 2FA code");
     } finally {
       setLoading(false);
     }
@@ -652,9 +499,7 @@ const UserDashboard = () => {
 
         <div className="flex items-center space-x-4">
           <button className="flex items-center space-x-1 hover:bg-blue-700 p-2 rounded">
-            <span className="hidden md:block">
-              {userData?.firstName || "User"}
-            </span>
+            <span className="hidden md:block">{userData?.firstName || "User"}</span>
             <ChevronRight className="w-4 h-4" />
           </button>
           <button className="hidden md:block hover:bg-blue-700 p-2 rounded">
@@ -670,28 +515,16 @@ const UserDashboard = () => {
   );
 
   const Sidebar = () => (
-    <div
-      className={`${
-        sidebarOpen ? "block" : "hidden"
-      } md:block fixed md:relative inset-0 md:inset-auto z-40 md:z-auto`}
-    >
-      <div
-        className="bg-black bg-opacity-50 md:bg-transparent absolute inset-0 md:relative"
-        onClick={() => setSidebarOpen(false)}
-      >
-        <div
-          className="bg-white w-64 h-full p-4 shadow-lg md:shadow-none"
-          onClick={(e) => e.stopPropagation()}
-        >
+    <div className={`${sidebarOpen ? "block" : "hidden"} md:block fixed md:relative inset-0 md:inset-auto z-40 md:z-auto`}>
+      <div className="bg-black bg-opacity-50 md:bg-transparent absolute inset-0 md:relative" onClick={() => setSidebarOpen(false)}>
+        <div className="bg-white w-64 h-full p-4 shadow-lg md:shadow-none" onClick={(e) => e.stopPropagation()}>
           <div className="flex items-center mb-6 pb-4 border-b">
             <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
               {userData?.firstName?.charAt(0) || "U"}
             </div>
             <div className="ml-3">
               <p className="text-sm text-gray-600">Hello,</p>
-              <p className="font-semibold">
-                {userData?.firstName || "User"} {userData?.lastName || ""}
-              </p>
+              <p className="font-semibold">{userData?.firstName || "User"} {userData?.lastName || ""}</p>
             </div>
           </div>
 
@@ -701,29 +534,16 @@ const UserDashboard = () => {
                 <div className="flex items-center justify-between p-2 hover:bg-gray-100 cursor-pointer rounded">
                   <div className="flex items-center space-x-3">
                     <item.icon className="w-5 h-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      {item.label}
-                    </span>
+                    <span className="text-sm font-medium text-gray-700">{item.label}</span>
                   </div>
-                  {item.subItems && (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
+                  {item.subItems && <ChevronRight className="w-4 h-4 text-gray-400" />}
                 </div>
                 {item.subItems && (
                   <div className="ml-8 space-y-1">
                     {item.subItems.map((subItem, subIndex) => (
-                      <div
-                        key={subIndex}
-                        className="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer rounded"
-                      >
-                        <span className="text-sm text-gray-600">
-                          {subItem.label}
-                        </span>
-                        {subItem.amount && (
-                          <span className="text-sm font-medium">
-                            {subItem.amount}
-                          </span>
-                        )}
+                      <div key={subIndex} className="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer rounded">
+                        <span className="text-sm text-gray-600">{subItem.label}</span>
+                        {subItem.amount && <span className="text-sm font-medium">{subItem.amount}</span>}
                       </div>
                     ))}
                   </div>
@@ -733,16 +553,10 @@ const UserDashboard = () => {
           </nav>
 
           <div className="mt-8 pt-4 border-t">
-            <div className="text-sm text-gray-600 mb-2">
-              Frequently Visited:
-            </div>
+            <div className="text-sm text-gray-600 mb-2">Frequently Visited:</div>
             <div className="space-y-1">
-              <div className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer">
-                Track Order
-              </div>
-              <div className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer">
-                Help Center
-              </div>
+              <div className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer">Track Order</div>
+              <div className="text-sm text-gray-500 hover:text-blue-600 cursor-pointer">Help Center</div>
             </div>
           </div>
 
@@ -761,9 +575,7 @@ const UserDashboard = () => {
   const PersonalInfoSection = () => (
     <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-lg font-semibold text-gray-800">
-          Personal Information
-        </h1>
+        <h1 className="text-lg font-semibold text-gray-800">Personal Information</h1>
         {!isEditing ? (
           <button
             onClick={() => setIsEditing(true)}
@@ -805,10 +617,7 @@ const UserDashboard = () => {
               key="firstName-input"
               type="text"
               value={isEditing ? editData.firstName : userData?.firstName || ""}
-              onChange={(e) =>
-                isEditing &&
-                setEditData({ ...editData, firstName: e.target.value })
-              }
+              onChange={(e) => isEditing && setEditData({ ...editData, firstName: e.target.value })}
               className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="First Name"
               readOnly={!isEditing}
@@ -819,10 +628,7 @@ const UserDashboard = () => {
               key="lastName-input"
               type="text"
               value={isEditing ? editData.lastName : userData?.lastName || ""}
-              onChange={(e) =>
-                isEditing &&
-                setEditData({ ...editData, lastName: e.target.value })
-              }
+              onChange={(e) => isEditing && setEditData({ ...editData, lastName: e.target.value })}
               className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
               placeholder="Last Name"
               readOnly={!isEditing}
@@ -831,23 +637,15 @@ const UserDashboard = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Your Gender
-          </label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Your Gender</label>
           <div className="flex space-x-4">
             <label className="flex items-center">
               <input
                 type="radio"
                 name="gender"
                 value="Male"
-                checked={
-                  isEditing
-                    ? editData.gender === "Male"
-                    : userData?.gender === "Male"
-                }
-                onChange={() =>
-                  isEditing && setEditData({ ...editData, gender: "Male" })
-                }
+                checked={isEditing ? editData.gender === "Male" : userData?.gender === "Male"}
+                onChange={() => isEditing && setEditData({ ...editData, gender: "Male" })}
                 className="mr-2"
                 disabled={!isEditing}
               />
@@ -858,14 +656,8 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Female"
-                checked={
-                  isEditing
-                    ? editData.gender === "Female"
-                    : userData?.gender === "Female"
-                }
-                onChange={() =>
-                  isEditing && setEditData({ ...editData, gender: "Female" })
-                }
+                checked={isEditing ? editData.gender === "Female" : userData?.gender === "Female"}
+                onChange={() => isEditing && setEditData({ ...editData, gender: "Female" })}
                 className="mr-2"
                 disabled={!isEditing}
               />
@@ -876,14 +668,8 @@ const UserDashboard = () => {
                 type="radio"
                 name="gender"
                 value="Other"
-                checked={
-                  isEditing
-                    ? editData.gender === "Other"
-                    : userData?.gender === "Other"
-                }
-                onChange={() =>
-                  isEditing && setEditData({ ...editData, gender: "Other" })
-                }
+                checked={isEditing ? editData.gender === "Other" : userData?.gender === "Other"}
+                onChange={() => isEditing && setEditData({ ...editData, gender: "Other" })}
                 className="mr-2"
                 disabled={!isEditing}
               />
@@ -894,13 +680,9 @@ const UserDashboard = () => {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Email Address
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Email Address</label>
             {isEditing && (
-              <button className="text-blue-600 hover:text-blue-800 text-sm">
-                Edit
-              </button>
+              <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
             )}
           </div>
           <input
@@ -915,10 +697,7 @@ const UserDashboard = () => {
                 ? userData.emailOrMobile
                 : ""
             }
-            onChange={(e) =>
-              isEditing &&
-              setEditData({ ...editData, emailOrMobile: e.target.value })
-            }
+            onChange={(e) => isEditing && setEditData({ ...editData, emailOrMobile: e.target.value })}
             className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
             readOnly={!isEditing}
           />
@@ -926,13 +705,9 @@ const UserDashboard = () => {
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Mobile Number
-            </label>
+            <label className="block text-sm font-medium text-gray-700">Mobile Number</label>
             {isEditing && (
-              <button className="text-blue-600 hover:text-blue-800 text-sm">
-                Edit
-              </button>
+              <button className="text-blue-600 hover:text-blue-800 text-sm">Edit</button>
             )}
           </div>
           <input
@@ -947,108 +722,65 @@ const UserDashboard = () => {
                 ? `+91${userData.emailOrMobile.replace(/^91/, "")}`
                 : ""
             }
-            onChange={(e) =>
-              isEditing &&
-              setEditData({
-                ...editData,
-                emailOrMobile: e.target.value.replace(/\D/g, ""),
-              })
-            }
+            onChange={(e) => isEditing && setEditData({ ...editData, emailOrMobile: e.target.value.replace(/\D/g, "") })}
             className="w-full p-2 border-2 rounded-lg border-gray-200 bg-gray-50"
             readOnly={!isEditing}
           />
         </div>
 
+        {/* New 2FA Section */}
         <div className="border-t pt-4">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            Two-Factor Authentication
-          </h3>
-          <div className="space-y-4">
-            {userData.twoFactorEnabled ? (
-              <div>
-                <p className="text-sm text-gray-600 mb-2">
-                  Two-Factor Authentication is enabled.
-                </p>
-                <button
-                  onClick={handleDisableTwoFactor}
-                  disabled={loading}
-                  className="text-red-600 hover:text-red-800 disabled:opacity-50"
-                >
-                  Disable 2FA
-                </button>
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm text-gray-600 mb-2">
-                  Enable Two-Factor Authentication for added security.
-                </p>
-                <button
-                  onClick={handleEnableTwoFactor}
-                  disabled={loading}
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700"
-                >
-                  Enable 2FA
-                </button>
-                {qrCodeUrl && (
-                  <div className="mt-4">
-                    <p className="text-sm text-gray-600 mb-2">
-                      Scan this QR code with Google Authenticator:
-                    </p>
-                    <QRCode value={qrCodeUrl} size={150} />
-                    <p className="text-sm text-gray-600 mt-2">
-                      Or enter this code manually:{" "}
-                      <strong>{twoFactorSecret}</strong>
-                    </p>
-                  </div>
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Two-Factor Authentication</h3>
+          {userData.twoFAEnabled ? (
+            <p className="text-sm text-green-600">2FA is enabled for your account.</p>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">Enable Google Authenticator for enhanced security.</p>
+              <button
+                onClick={handleSetup2FA}
+                disabled={loading}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 px-4 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                ) : (
+                  <>
+                    <Shield className="w-4 h-4" />
+                    <span>Enable 2FA</span>
+                  </>
                 )}
-              </div>
-            )}
-          </div>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="border-t pt-4">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">FAQs</h3>
           <div className="space-y-4">
             <div>
-              <p className="font-medium mb-2">
-                What happens when I update my email address (or mobile number)?
-              </p>
+              <p className="font-medium mb-2">What happens when I update my email address (or mobile number)?</p>
               <p className="text-sm text-gray-600">
-                Your login email id (or mobile number) changes, likewise. You'll
-                receive all your account related communication on your updated
-                email address (or mobile number).
+                Your login email id (or mobile number) changes, likewise. You'll receive all your account related 
+                communication on your updated email address (or mobile number).
               </p>
             </div>
             <div>
-              <p className="font-medium mb-2">
-                When will my Shopymol account be updated with the new email
-                address (or mobile number)?
-              </p>
+              <p className="font-medium mb-2">When will my Shopymol account be updated with the new email address (or mobile number)?</p>
               <p className="text-sm text-gray-600">
-                It happens as soon as you confirm the verification code sent to
-                your email (or mobile) and save the changes.
+                It happens as soon as you confirm the verification code sent to your email (or mobile) and save the changes.
               </p>
             </div>
             <div>
-              <p className="font-medium mb-2">
-                What happens to my existing Shopymol account when I update my
-                email address (or mobile number)?
-              </p>
+              <p className="font-medium mb-2">What happens to my existing Shopymol account when I update my email address (or mobile number)?</p>
               <p className="text-sm text-gray-600">
-                Updating your email address (or mobile number) doesn't
-                invalidate your account. Your account remains fully functional.
-                You'll continue seeing your Order history, saved information and
-                personal details.
+                Updating your email address (or mobile number) doesn't invalidate your account. Your account remains fully 
+                functional. You'll continue seeing your Order history, saved information and personal details.
               </p>
             </div>
             <div>
-              <p className="font-medium mb-2">
-                Does my Seller account get affected when I update my email
-                address?
-              </p>
+              <p className="font-medium mb-2">Does my Seller account get affected when I update my email address?</p>
               <p className="text-sm text-gray-600">
-                Shopymol has a 'single sign-on' policy. Any changes will reflect
-                in your Seller account also.
+                Shopymol has a 'single sign-on' policy. Any changes will reflect in your Seller account also.
               </p>
             </div>
           </div>
@@ -1080,53 +812,21 @@ const UserDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       {popup.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black bg-opacity-50">
-          <div
-            className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 transform transition-all duration-300 ${
-              popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"
-            }`}
-          >
+          <div className={`bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 max-w-xs sm:max-w-sm w-full mx-2 sm:mx-4 transform transition-all duration-300 ${popup.show ? "scale-100 opacity-100" : "scale-95 opacity-0"}`}>
             <div className="flex items-center justify-between mb-3 sm:mb-4">
               <div className="flex items-center space-x-2 sm:space-x-3">
-                <div
-                  className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${
-                    popup.type === "success" ? "bg-green-100" : "bg-red-100"
-                  }`}
-                >
-                  {popup.type === "success" ? (
-                    <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                  ) : (
-                    <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />
-                  )}
+                <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center ${popup.type === "success" ? "bg-green-100" : "bg-red-100"}`}>
+                  {popup.type === "success" ? <CheckCircle className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" /> : <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-600" />}
                 </div>
-                <h3
-                  className={`font-semibold text-base sm:text-lg ${
-                    popup.type === "success" ? "text-green-800" : "text-red-800"
-                  }`}
-                >
-                  {popup.type === "success" ? "Success!" : "Error!"}
-                </h3>
+                <h3 className={`font-semibold text-base sm:text-lg ${popup.type === "success" ? "text-green-800" : "text-red-800"}`}>{popup.type === "success" ? "Success!" : "Error!"}</h3>
               </div>
-              <button
-                onClick={() => setPopup({ show: false, type: "", message: "" })}
-                className="text-gray-400 hover:text-gray-600 p-1"
-              >
+              <button onClick={() => setPopup({ show: false, type: "", message: "" })} className="text-gray-400 hover:text-gray-600 p-1">
                 <X className="w-4 h-4 sm:w-5 sm:h-5" />
               </button>
             </div>
-            <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">
-              {popup.message}
-            </p>
-            <div
-              className={`w-full h-1 rounded-full ${
-                popup.type === "success" ? "bg-green-200" : "bg-red-200"
-              }`}
-            >
-              <div
-                className={`h-full rounded-full animate-pulse ${
-                  popup.type === "success" ? "bg-green-500" : "bg-red-500"
-                }`}
-                style={{ width: "100%" }}
-              ></div>
+            <p className="text-gray-700 mb-3 sm:mb-4 text-sm sm:text-base">{popup.message}</p>
+            <div className={`w-full h-1 rounded-full ${popup.type === "success" ? "bg-green-200" : "bg-red-200"}`}>
+              <div className={`h-full rounded-full animate-pulse ${popup.type === "success" ? "bg-green-500" : "bg-red-500"}`} style={{ width: "100%" }}></div>
             </div>
           </div>
         </div>
@@ -1136,19 +836,13 @@ const UserDashboard = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-4 w-80">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold text-blue-700">Enter OTP</h2>
-              <button
-                onClick={() => {
-                  setShowOtpPopup(false);
-                  setOtp(["", "", "", "", "", ""]);
-                }}
-                className="text-blue-500 hover:text-blue-700"
-              >
+              <h2 className="text-lg font-semibold text-blue-700">Login</h2>
+              <button onClick={() => { setShowOtpPopup(false); setOtp(["", "", "", "", "", ""]); }} className="text-blue-500 hover:text-blue-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-sm text-gray-600 mb-2">
-              Enter OTP sent to {emailOrMobile}
+              Enter OTP Sent to {emailOrMobile}
             </p>
             <div className="flex justify-center space-x-2 mb-2">
               {otp.map((digit, index) => (
@@ -1164,9 +858,7 @@ const UserDashboard = () => {
               ))}
             </div>
             {timer > 0 && (
-              <p className="text-xs text-blue-500 mb-2 text-center">
-                Resend OTP in {formatTime(timer)}
-              </p>
+              <p className="text-xs text-blue-500 mb-2 text-center">Resend OTP in {formatTime(timer)}</p>
             )}
             {canResend && (
               <button
@@ -1177,63 +869,59 @@ const UserDashboard = () => {
                 Resend OTP
               </button>
             )}
-            <button
-              onClick={handleVerifyOTP}
-              disabled={loading}
-              className="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 flex items-center justify-center space-x-2 disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>Verify</span>
-                </>
-              )}
-            </button>
           </div>
         </div>
       )}
 
-      {showTotpPopup && (
+      {/* New 2FA Popup */}
+      {show2FAPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-white rounded-lg shadow-lg p-4 w-80">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-lg font-semibold text-blue-700">
-                Enter 2FA Code
-              </h2>
+              <h2 className="text-lg font-semibold text-blue-700">{twoFARequired ? "Verify 2FA" : "Setup 2FA"}</h2>
               <button
                 onClick={() => {
-                  setShowTotpPopup(false);
-                  setTotpCode("");
+                  setShow2FAPopup(false);
+                  setTwoFACode("");
+                  setQrCodeUrl("");
+                  if (twoFARequired) {
+                    setTwoFARequired(false);
+                    setTwoFAUserId("");
+                  }
                 }}
                 className="text-blue-500 hover:text-blue-700"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <p className="text-sm text-gray-600 mb-2">
-              Enter the code from Google Authenticator
-            </p>
-            <input
-              type="text"
-              value={totpCode}
-              onChange={(e) => setTotpCode(e.target.value)}
-              maxLength={6}
-              className="w-full p-2 border-2 border-gray-300 rounded text-center text-lg focus:outline-none focus:border-blue-500"
-              placeholder="Enter 6-digit code"
-            />
+            {!twoFARequired && qrCodeUrl && (
+              <>
+                <p className="text-sm text-gray-600 mb-2">Scan this QR code with Google Authenticator:</p>
+                <img src={qrCodeUrl} alt="2FA QR Code" className="w-32 h-32 mx-auto mb-2" />
+              </>
+            )}
+            <div className="mb-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Enter 2FA Code</label>
+              <input
+                type="text"
+                value={twoFACode}
+                onChange={(e) => setTwoFACode(e.target.value)}
+                className="w-full p-2 border-2 rounded-lg border-gray-200 focus:outline-none focus:border-blue-500"
+                placeholder="Enter 6-digit code"
+                maxLength={6}
+              />
+            </div>
             <button
-              onClick={handleVerifyTotp}
+              onClick={handleVerify2FA}
               disabled={loading}
-              className="w-full mt-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2 rounded-lg font-semibold hover:from-blue-700 hover:to-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
             >
               {loading ? (
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  <span>Verify</span>
+                  <span>Verify 2FA</span>
                 </>
               )}
             </button>
@@ -1252,9 +940,7 @@ const UserDashboard = () => {
                 {showForgotPassword ? "Reset Password" : "Login to Shopymol"}
               </h1>
               <p className="text-gray-600 mt-2 text-sm sm:text-base px-2">
-                {showForgotPassword
-                  ? "Create a new password"
-                  : "Choose your preferred login method"}
+                {showForgotPassword ? "Create a new password" : "Choose your preferred login method"}
               </p>
             </div>
 
@@ -1262,9 +948,7 @@ const UserDashboard = () => {
               {showForgotPassword ? (
                 <div className="space-y-4 sm:space-y-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Email or Mobile Number
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -1301,9 +985,7 @@ const UserDashboard = () => {
                   ) : (
                     <div className="space-y-4 sm:space-y-6">
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          New Password
-                        </label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -1312,7 +994,7 @@ const UserDashboard = () => {
                             type={showNewPassword ? "text" : "password"}
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
-                            className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                            className="w-full pl-9 sm:pl-10 pr-10 sm:pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
                             placeholder="Enter new password"
                           />
                           <button
@@ -1321,18 +1003,15 @@ const UserDashboard = () => {
                             className="absolute inset-y-0 right-0 pr-3 flex items-center"
                           >
                             {showNewPassword ? (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
+                              <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                             ) : (
-                              <Eye className="w-4 h-4 text-gray-400" />
+                              <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                             )}
                           </button>
                         </div>
                       </div>
-
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 mb-2">
-                          Confirm Password
-                        </label>
+                        <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
                         <div className="relative">
                           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -1341,92 +1020,71 @@ const UserDashboard = () => {
                             type={showConfirmPassword ? "text" : "password"}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
-                            className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                            className="w-full pl-9 sm:pl-10 pr-10 sm:pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
                             placeholder="Confirm new password"
                           />
                           <button
                             type="button"
-                            onClick={() =>
-                              setShowConfirmPassword(!showConfirmPassword)
-                            }
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                             className="absolute inset-y-0 right-0 pr-3 flex items-center"
                           >
                             {showConfirmPassword ? (
-                              <EyeOff className="w-4 h-4 text-gray-400" />
+                              <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                             ) : (
-                              <Eye className="w-4 h-4 text-gray-400" />
+                              <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                             )}
                           </button>
                         </div>
                       </div>
-
-                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
-                        <button
-                          onClick={handleResetPassword}
-                          disabled={loading}
-                          className="w-full bg-gradient-to-r from-green-600 to-blue-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
-                        >
-                          {loading ? (
-                            <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                          ) : (
-                            <>
-                              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                              <span>Reset Password</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setShowForgotPassword(false);
-                            setNewPassword("");
-                            setConfirmPassword("");
-                            setOtpSent(false);
-                            setOtpVerified(false);
-                            setShowOtpPopup(false);
-                          }}
-                          className="w-full bg-gray-200 text-gray-700 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:bg-gray-300 transition-all transform hover:scale-105 flex items-center justify-center space-x-2"
-                        >
-                          <X className="w-4 h-4 sm:w-5 sm:h-5" />
-                          <span>Cancel</span>
-                        </button>
-                      </div>
+                      <button
+                        onClick={handleResetPassword}
+                        disabled={loading}
+                        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
+                      >
+                        {loading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span>Reset Password</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   )}
-                  <div className="text-center">
-                    <button
-                      onClick={() => {
-                        setShowForgotPassword(false);
-                        setNewPassword("");
-                        setConfirmPassword("");
-                        setOtpSent(false);
-                        setOtpVerified(false);
-                        setShowOtpPopup(false);
-                      }}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Back to Login
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => {
+                      setShowForgotPassword(false);
+                      setOtpSent(false);
+                      setOtpVerified(false);
+                      setNewPassword("");
+                      setConfirmPassword("");
+                      setOtp(["", "", "", "", "", ""]);
+                    }}
+                    className="w-full text-sm text-blue-600 hover:text-blue-800 mt-2 sm:mt-4"
+                  >
+                    Back to Login
+                  </button>
                 </div>
               ) : (
                 <div className="space-y-4 sm:space-y-6">
                   <div className="flex justify-center space-x-2 sm:space-x-4 mb-4 sm:mb-6">
                     <button
                       onClick={() => setLoginMethod("otp")}
-                      className={`w-1/2 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 ${
+                      className={`flex-1 py-2 sm:py-2.5 font-semibold rounded-lg sm:rounded-xl transition-all transform hover:scale-105 text-sm sm:text-base ${
                         loginMethod === "otp"
                           ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                          : "bg-gray-200 text-gray-700"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
                       OTP Login
                     </button>
                     <button
                       onClick={() => setLoginMethod("password")}
-                      className={`w-1/2 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-semibold transition-all transform hover:scale-105 ${
+                      className={`flex-1 py-2 sm:py-2.5 font-semibold rounded-lg sm:rounded-xl transition-all transform hover:scale-105 text-sm sm:text-base ${
                         loginMethod === "password"
                           ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
-                          : "bg-gray-200 text-gray-700"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
                       Password Login
@@ -1434,9 +1092,7 @@ const UserDashboard = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Email or Mobile Number
-                    </label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Email or Mobile Number</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -1453,9 +1109,7 @@ const UserDashboard = () => {
 
                   {loginMethod === "password" && (
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-2">
-                        Password
-                      </label>
+                      <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                           <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
@@ -1464,7 +1118,7 @@ const UserDashboard = () => {
                           type={showPassword ? "text" : "password"}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-9 sm:pl-10 pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
+                          className="w-full pl-9 sm:pl-10 pr-10 sm:pr-12 py-2.5 sm:py-3 border-2 rounded-lg sm:rounded-xl focus:outline-none transition-all text-sm sm:text-base border-gray-200 focus:border-blue-500"
                           placeholder="Enter password"
                         />
                         <button
@@ -1473,9 +1127,9 @@ const UserDashboard = () => {
                           className="absolute inset-y-0 right-0 pr-3 flex items-center"
                         >
                           {showPassword ? (
-                            <EyeOff className="w-4 h-4 text-gray-400" />
+                            <EyeOff className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                           ) : (
-                            <Eye className="w-4 h-4 text-gray-400" />
+                            <Eye className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                           )}
                         </button>
                       </div>
@@ -1483,49 +1137,42 @@ const UserDashboard = () => {
                   )}
 
                   <button
-                    onClick={
-                      loginMethod === "otp"
-                        ? handleSendOTP
-                        : handlePasswordLogin
-                    }
+                    onClick={loginMethod === "otp" ? handleSendOTP : handlePasswordLogin}
                     disabled={loading}
                     className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 flex items-center justify-center space-x-2 disabled:opacity-50"
                   >
                     {loading ? (
                       <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                    ) : loginMethod === "otp" ? (
-                      <>
-                        <Send className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>Send OTP</span>
-                      </>
                     ) : (
                       <>
-                        <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
-                        <span>Login</span>
+                        {loginMethod === "otp" ? (
+                          <>
+                            <Send className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span>Request OTP</span>
+                          </>
+                        ) : (
+                          <>
+                            <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
+                            <span>Login</span>
+                          </>
+                        )}
                       </>
                     )}
                   </button>
 
-                  <div className="text-center">
-                    <button
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-blue-600 hover:text-blue-800 text-sm"
-                    >
-                      Forgot Password?
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => setShowForgotPassword(true)}
+                    className="w-full text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Forgot Password?
+                  </button>
 
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">
-                      New to Shopymol?{" "}
-                      <Link
-                        to="/signup"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        Create an account
-                      </Link>
-                    </p>
-                  </div>
+                  <p className="text-center text-sm text-gray-600">
+                    New to Shopymol?{" "}
+                    <Link to="/register" className="text-blue-600 hover:text-blue-800 font-semibold">
+                      Create an account
+                    </Link>
+                  </p>
                 </div>
               )}
             </div>
@@ -1536,7 +1183,7 @@ const UserDashboard = () => {
           <NavBar />
           <div className="flex">
             <Sidebar />
-            <div className="flex-1 p-4 sm:p-6 lg:p-8">
+            <div className="flex-1 p-4 sm:p-6 md:p-8">
               <PersonalInfoSection />
             </div>
           </div>

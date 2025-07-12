@@ -2,8 +2,8 @@ const User = require("../models/User");
 const axios = require("axios");
 const bcrypt = require("bcrypt");
 const nodemailer = require("nodemailer");
-const speakeasy = require("speakeasy");
-const QRCode = require("qrcode");
+const speakeasy = require("speakeasy"); // Added for 2FA
+const qrcode = require("qrcode"); // Added for QR code generation
 
 const sendOTP = async (req, res) => {
   const { emailOrMobile, isRegistration = false } = req.body;
@@ -14,6 +14,7 @@ const sendOTP = async (req, res) => {
     const isEmail = emailOrMobile.includes("@");
     let normalizedInput = emailOrMobile;
 
+    // Normalize mobile number
     if (!isEmail) {
       normalizedInput = emailOrMobile.replace(/\D/g, "");
       if (normalizedInput.length === 10) {
@@ -26,10 +27,12 @@ const sendOTP = async (req, res) => {
 
     let user = await User.findOne({ emailOrMobile: normalizedInput });
 
+    // For registration, check if user exists
     if (isRegistration && user) {
       return res.status(400).json({ error: "Email or mobile already exists" });
     }
 
+    // Create new user if none exists
     if (!user) {
       user = new User({ emailOrMobile: normalizedInput });
     }
@@ -114,7 +117,7 @@ const verifyOTP = async (req, res) => {
   user.otpExpires = null;
   await user.save();
 
-  res.json({ success: true, message: "OTP verified successfully", twoFactorEnabled: user.twoFactorEnabled });
+  res.json({ success: true, message: "OTP verified successfully" });
 };
 
 const registerUser = async (req, res) => {
@@ -162,6 +165,7 @@ const saveProfileInfo = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
+    // Update only provided fields
     if (firstName) user.firstName = firstName;
     if (lastName) user.lastName = lastName;
     if (gender) user.gender = gender;
@@ -176,7 +180,6 @@ const saveProfileInfo = async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         gender: user.gender,
-        twoFactorEnabled: user.twoFactorEnabled,
       },
     });
   } catch (err) {
@@ -266,7 +269,7 @@ const getUserProfile = async (req, res) => {
       gender: user.gender,
       address: user.address,
       isVerified: user.isVerified,
-      twoFactorEnabled: user.twoFactorEnabled,
+      twoFAEnabled: user.twoFAEnabled, // Added to return 2FA status
     });
   } catch (err) {
     console.error("❌ Error fetching profile:", err.message);
@@ -275,7 +278,7 @@ const getUserProfile = async (req, res) => {
 };
 
 const loginUser = async (req, res) => {
-  const { emailOrMobile, password, totpCode } = req.body;
+  const { emailOrMobile, password } = req.body;
   let normalizedInput = emailOrMobile;
 
   if (!emailOrMobile.includes("@")) {
@@ -294,7 +297,7 @@ const loginUser = async (req, res) => {
     });
 
     if (!user) {
-      console.log("[Backend] User not found for:", normalizedInput);
+      console.log("[Backend] User not found:", normalizedInput);
       return res.status(404).json({ error: "User not found" });
     }
 
@@ -307,20 +310,14 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ error: "Invalid password" });
     }
 
-    if (user.twoFactorEnabled) {
-      if (!totpCode) {
-        return res.status(400).json({ error: "TOTP code required for 2FA" });
-      }
-
-      const verified = speakeasy.totp.verify({
-        secret: user.twoFactorSecret,
-        encoding: "base32",
-        token: totpCode,
+    // Check if 2FA is enabled
+    if (user.twoFAEnabled) {
+      return res.json({
+        success: true,
+        message: "2FA required",
+        twoFARequired: true,
+        userId: user._id,
       });
-
-      if (!verified) {
-        return res.status(400).json({ error: "Invalid TOTP code" });
-      }
     }
 
     res.json({ success: true, message: "Login successful" });
@@ -538,14 +535,13 @@ const deleteAccount = async (req, res) => {
   }
 };
 
-const enableTwoFactor = async (req, res) => {
+// New 2FA Setup Function
+const setup2FA = async (req, res) => {
   const { emailOrMobile } = req.body;
   let normalizedInput = emailOrMobile;
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
-    if (normalizedInput.length === 10) {
-      normalizedInput = `91${normalizedInput}`;
-    }
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
   }
 
   try {
@@ -560,40 +556,38 @@ const enableTwoFactor = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (user.twoFactorEnabled) {
+    if (user.twoFAEnabled) {
       return res.status(400).json({ error: "2FA already enabled" });
     }
 
     const secret = speakeasy.generateSecret({
-      name: `Shopymol:${user.emailOrMobile}`,
+      name: `Shopymol:${emailOrMobile}`,
+      issuer: "Shopymol",
     });
 
-    user.twoFactorSecret = secret.base32;
-    user.twoFactorEnabled = true;
+    user.twoFASecret = secret.base32;
     await user.save();
 
-    const qrCodeUrl = await QRCode.toDataURL(secret.otpauth_url);
-
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
     res.json({
       success: true,
-      message: "2FA enabled successfully",
+      message: "2FA setup initiated",
       qrCodeUrl,
       secret: secret.base32,
     });
   } catch (err) {
-    console.error("❌ Error enabling 2FA:", err.message);
-    res.status(500).json({ error: "Failed to enable 2FA" });
+    console.error("❌ Error setting up 2FA:", err.message);
+    res.status(500).json({ error: "Failed to setup 2FA" });
   }
 };
 
-const disableTwoFactor = async (req, res) => {
-  const { emailOrMobile } = req.body;
+// New 2FA Verification Function
+const verify2FA = async (req, res) => {
+  const { emailOrMobile, token } = req.body;
   let normalizedInput = emailOrMobile;
   if (!emailOrMobile.includes("@")) {
     normalizedInput = emailOrMobile.replace(/\D/g, "");
-    if (normalizedInput.length === 10) {
-      normalizedInput = `91${normalizedInput}`;
-    }
+    if (normalizedInput.length === 10) normalizedInput = `91${normalizedInput}`;
   }
 
   try {
@@ -608,18 +602,31 @@ const disableTwoFactor = async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    if (!user.twoFactorEnabled) {
-      return res.status(400).json({ error: "2FA not enabled" });
+    if (!user.twoFASecret) {
+      return res.status(400).json({ error: "2FA not set up" });
     }
 
-    user.twoFactorSecret = null;
-    user.twoFactorEnabled = false;
-    await user.save();
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFASecret,
+      encoding: "base32",
+      token,
+      window: 1, // Allow 30-second window for clock drift
+    });
 
-    res.json({ success: true, message: "2FA disabled successfully" });
+    if (!verified) {
+      return res.status(400).json({ error: "Invalid 2FA code" });
+    }
+
+    // Enable 2FA if not already enabled (for setup verification)
+    if (!user.twoFAEnabled) {
+      user.twoFAEnabled = true;
+      await user.save();
+    }
+
+    res.json({ success: true, message: "2FA verified successfully" });
   } catch (err) {
-    console.error("❌ Error disabling 2FA:", err.message);
-    res.status(500).json({ error: "Failed to disable 2FA" });
+    console.error("❌ Error verifying 2FA:", err.message);
+    res.status(500).json({ error: "2FA verification failed" });
   }
 };
 
@@ -637,6 +644,6 @@ module.exports = {
   getUserProfile,
   deactivateAccount,
   deleteAccount,
-  enableTwoFactor,
-  disableTwoFactor,
+  setup2FA, // Added
+  verify2FA, // Added
 };
